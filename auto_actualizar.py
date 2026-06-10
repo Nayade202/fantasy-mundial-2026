@@ -83,3 +83,13 @@ if __name__ == "__main__":
             print(f"\n⚽ Actualizando fase: {jornada}...")
 
     print("\n✅ Auto-actualización completada")
+
+    # Enviar clasificación por Telegram
+    try:
+        from telegram_notificaciones import notificar_clasificacion_jornada
+        for jornada in jornadas:
+            if isinstance(jornada, int):
+                notificar_clasificacion_jornada(jornada)
+        print("📨 Notificaciones Telegram enviadas")
+    except Exception as e:
+        print(f"⚠️  Error Telegram: {e}")
