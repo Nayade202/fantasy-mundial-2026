@@ -18,30 +18,128 @@ from database import (
 from fantasy import actualizar_puntos_jornada, _api_get, LEAGUE_ID, SEASON
 from alineacion import pagina_alineacion
 
-# ──────────────────────────────────────────
-#  CONFIGURACIÓN DE PÁGINA
-# ──────────────────────────────────────────
 st.set_page_config(
     page_title="Fantasy Mundial 2026",
     page_icon="🏆",
     layout="wide"
 )
 
+# ── CSS GLOBAL ────────────────────────────
 st.markdown("""
 <style>
-    .titulo { font-size: 2.5rem; font-weight: bold; text-align: center; color: #1a472a; }
-    .subtitulo { text-align: center; color: #666; margin-bottom: 2rem; }
-    .pts { font-size: 1.8rem; font-weight: bold; color: #2ecc71; }
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+
+html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
+
+.fifa-header {
+    background: #1a7a4a;
+    border-radius: 14px;
+    padding: 18px 22px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 1.5rem;
+}
+.fifa-header-logo {
+    width: 48px; height: 48px;
+    background: #c9a84c;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+}
+.fifa-header-title { color: white; font-size: 20px; font-weight: 600; margin: 0; }
+.fifa-header-sub { color: rgba(255,255,255,0.7); font-size: 12px; margin: 0; }
+
+.stat-box {
+    background: #e8f5ee;
+    border-radius: 10px;
+    padding: 14px;
+    text-align: center;
+}
+.stat-box-label { font-size: 11px; color: #0f6e56; margin: 0 0 4px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; }
+.stat-box-value { font-size: 26px; font-weight: 600; color: #085041; margin: 0; }
+
+.podium-card {
+    background: white;
+    border: 0.5px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+.podium-card.leader { border: 2px solid #1a7a4a; }
+.podium-avatar {
+    width: 42px; height: 42px;
+    border-radius: 50%;
+    background: #e8f5ee;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 600; font-size: 14px; color: #0f6e56;
+    flex-shrink: 0;
+}
+.podium-name { font-size: 15px; font-weight: 500; margin: 0; }
+.podium-team { font-size: 12px; color: #666; margin: 0; }
+.podium-pts { font-size: 24px; font-weight: 600; color: #1a7a4a; margin: 0; }
+.podium-delta { font-size: 11px; color: #1a7a4a; margin: 0; }
+.badge-lider {
+    display: inline-block;
+    background: #e8f5ee; color: #085041;
+    font-size: 10px; padding: 2px 8px;
+    border-radius: 6px; margin-left: 6px;
+    font-weight: 500;
+}
+
+.player-card {
+    background: white;
+    border: 0.5px solid #e8e8e8;
+    border-radius: 10px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+}
+.player-foto {
+    width: 42px; height: 42px;
+    border-radius: 50%;
+    object-fit: cover; object-position: top;
+    border: 2px solid #e8f5ee;
+    flex-shrink: 0;
+}
+.player-avatar {
+    width: 42px; height: 42px;
+    border-radius: 50%;
+    background: #e8f5ee;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 600; font-size: 13px; color: #0f6e56;
+    flex-shrink: 0;
+}
+.player-nombre { font-size: 14px; font-weight: 500; margin: 0; }
+.player-info { font-size: 11px; color: #888; margin: 0; }
+.player-pts { font-size: 16px; font-weight: 600; color: #1a7a4a; margin-left: auto; white-space: nowrap; }
+.player-cap { background: #fff8e1; color: #856404; font-size: 10px; padding: 2px 7px; border-radius: 6px; font-weight: 500; }
+
+.seccion-titulo {
+    font-size: 11px; font-weight: 600;
+    color: #888; text-transform: uppercase;
+    letter-spacing: 0.06em; margin: 0 0 12px;
+}
+
+div[data-testid="stSidebar"] { background: #f8fdf9; }
+div[data-testid="stSidebar"] .stRadio label { font-size: 14px; }
 </style>
 """, unsafe_allow_html=True)
 
-# ──────────────────────────────────────────
-#  SIDEBAR
-# ──────────────────────────────────────────
-st.sidebar.markdown("## 🏆 Fantasy Mundial 2026")
-st.sidebar.markdown("---")
+# ── SIDEBAR ───────────────────────────────
+st.sidebar.markdown("""
+<div style="background:#1a7a4a;border-radius:10px;padding:12px 14px;margin-bottom:1rem;">
+  <div style="color:white;font-weight:600;font-size:16px;">🏆 Fantasy Mundial</div>
+  <div style="color:rgba(255,255,255,0.7);font-size:11px;">Mundial 2026</div>
+</div>
+""", unsafe_allow_html=True)
 
-pagina = st.sidebar.radio("Navegar", [
+pagina = st.sidebar.radio("", [
     "🏅 Clasificación",
     "👤 Mi equipo",
     "⚽ Mi alineación",
@@ -53,176 +151,235 @@ pagina = st.sidebar.radio("Navegar", [
 
 api_key = os.getenv("API_FOOTBALL_KEY", "")
 if not api_key or api_key == "TU_API_KEY_AQUI":
-    st.sidebar.warning("⚠️ Sin API key — solo modo demo")
+    st.sidebar.warning("⚠️ Sin API key")
 else:
-    st.sidebar.success("✅ API conectada")
+    st.sidebar.markdown("""
+    <div style="background:#e8f5ee;border-radius:8px;padding:8px 12px;font-size:12px;color:#085041;font-weight:500;">
+    ✅ API conectada
+    </div>""", unsafe_allow_html=True)
 
-# ──────────────────────────────────────────
-#  CLASIFICACIÓN
-# ──────────────────────────────────────────
+# ── CLASIFICACIÓN ─────────────────────────
 if pagina == "🏅 Clasificación":
-    st.markdown('<div class="titulo">🏆 Fantasy Mundial 2026</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitulo">Liga privada · Clasificación general</div>', unsafe_allow_html=True)
+    st.markdown("""
+    <div class="fifa-header">
+      <div class="fifa-header-logo">🏆</div>
+      <div>
+        <p class="fifa-header-title">Fantasy Mundial 2026</p>
+        <p class="fifa-header-sub">Liga privada · Clasificación general</p>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.markdown('<div class="stat-box"><p class="stat-box-label">Jornada</p><p class="stat-box-value">1</p></div>', unsafe_allow_html=True)
+    with col2:
+        st.markdown('<div class="stat-box"><p class="stat-box-label">Equipos</p><p class="stat-box-value">3</p></div>', unsafe_allow_html=True)
+    with col3:
+        st.markdown('<div class="stat-box"><p class="stat-box-label">Días restantes</p><p class="stat-box-value">39</p></div>', unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown('<p class="seccion-titulo">Clasificación</p>', unsafe_allow_html=True)
 
     clasificacion = get_clasificacion()
-
     if not clasificacion:
-        st.info("Aún no hay equipos creados. Ve a **Crear usuario/equipo** para empezar.")
+        st.info("Aún no hay equipos. Ve a **Crear usuario/equipo** para empezar.")
     else:
         medallas = {1: "🥇", 2: "🥈", 3: "🥉"}
         for i, (usuario, equipo, equipo_id, pts) in enumerate(clasificacion, 1):
             medal = medallas.get(i, f"{i}.")
-            col1, col2, col3 = st.columns([1, 4, 2])
-            with col1:
-                st.markdown(f"<div style='font-size:2rem;text-align:center'>{medal}</div>", unsafe_allow_html=True)
-            with col2:
-                st.markdown(f"**{usuario}**  \n_{equipo}_")
-            with col3:
-                st.markdown(f"<div class='pts'>{pts:.0f} pts</div>", unsafe_allow_html=True)
-            st.divider()
+            iniciales = usuario[:2].upper()
+            badge = '<span class="badge-lider">Líder</span>' if i == 1 else ""
+            pts_color = "#1a7a4a" if i == 1 else "#333"
+            card_class = "podium-card leader" if i == 1 else "podium-card"
+            st.markdown(f"""
+            <div class="{card_class}">
+              <span style="font-size:24px;min-width:32px;">{medal}</span>
+              <div class="podium-avatar">{iniciales}</div>
+              <div style="flex:1;">
+                <p class="podium-name">{usuario}{badge}</p>
+                <p class="podium-team">{equipo}</p>
+              </div>
+              <div style="text-align:right;">
+                <p class="podium-pts" style="color:{pts_color};">{pts:.0f} pts</p>
+              </div>
+            </div>
+            """, unsafe_allow_html=True)
 
         if len(clasificacion) > 1:
-            st.markdown("### 📊 Comparativa de puntos")
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown('<p class="seccion-titulo">Comparativa de puntos</p>', unsafe_allow_html=True)
             import pandas as pd
             df = pd.DataFrame(clasificacion, columns=["Usuario", "Equipo", "ID", "Puntos"])
-            st.bar_chart(df.set_index("Usuario")["Puntos"])
+            st.bar_chart(df.set_index("Usuario")["Puntos"], color="#1a7a4a")
 
-# ──────────────────────────────────────────
-#  MI EQUIPO
-# ──────────────────────────────────────────
+# ── MI EQUIPO ─────────────────────────────
 elif pagina == "👤 Mi equipo":
-    st.markdown("## 👤 Mi equipo")
+    st.markdown("""
+    <div class="fifa-header">
+      <div class="fifa-header-logo">👤</div>
+      <div><p class="fifa-header-title">Mi equipo</p>
+      <p class="fifa-header-sub">Jugadores y puntos</p></div>
+    </div>""", unsafe_allow_html=True)
 
-    usuarios = get_usuarios()
-    if not usuarios:
-        st.warning("No hay usuarios creados. Ve a **Crear usuario/equipo**.")
-    else:
-        nombres = [u[1] for u in usuarios]
-        sel = st.selectbox("Selecciona tu usuario", nombres)
-        uid = next(u[0] for u in usuarios if u[1] == sel)
-
-        equipos = get_equipos(uid)
-        if not equipos:
-            st.warning("Este usuario no tiene equipo. Ve a **Crear usuario/equipo**.")
-        else:
-            eq_nombres = [e[1] for e in equipos]
-            eq_sel = st.selectbox("Selecciona equipo", eq_nombres)
-            equipo_id = next(e[0] for e in equipos if e[1] == eq_sel)
-            presupuesto = get_presupuesto(equipo_id)
-
-            st.metric("💰 Presupuesto restante", f"${presupuesto:.1f}M")
-
-            jugadores = get_jugadores_equipo(equipo_id)
-            if not jugadores:
-                st.info("El equipo está vacío. Ve a **Buscar jugadores** para añadirlos.")
-            else:
-                pos_icons = {"G": "🧤", "D": "🛡️", "M": "⚙️", "F": "⚡"}
-                total = 0
-                for jug_id, nombre, pos, precio, capitan, pts, foto_url in jugadores:
-                    cap = " 👑" if capitan else ""
-                    icon = pos_icons.get(pos, "⚽")
-                    col1, col2, col3, col4, col5 = st.columns([1, 4, 2, 2, 2])
-                    with col1:
-                        if foto_url:
-                            st.markdown(f'''<img src="{foto_url}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">'''  , unsafe_allow_html=True)
-                        else:
-                            st.write(icon)
-                    with col2:
-                        st.write(f"**{nombre}**{cap}")
-                        st.caption(f"{icon} {pos} · ${precio}M")
-                    with col3:
-                        st.metric("", f"{pts:.0f} pts")
-                    with col4:
-                        if not capitan:
-                            if st.button("👑 Capitán", key=f"cap_btn_{jug_id}"):
-                                cambiar_capitan(equipo_id, jug_id)
-                                st.success(f"👑 {nombre} es el nuevo capitán")
-                                st.rerun()
-                        else:
-                            st.success("👑 Capitán")
-                    total += pts
-
-                st.divider()
-                st.markdown(f"### 📊 Total: **{total:.0f} puntos**")
-
-                historial = get_puntos_jornada(equipo_id)
-                if historial:
-                    st.markdown("### 📈 Evolución por jornada")
-                    import pandas as pd
-                    df = pd.DataFrame(historial, columns=["Jornada", "Puntos"])
-                    st.line_chart(df.set_index("Jornada"))
-
-# ──────────────────────────────────────────
-#  MI ALINEACIÓN
-# ──────────────────────────────────────────
-elif pagina == "⚽ Mi alineación":
     usuarios = get_usuarios()
     if not usuarios:
         st.warning("No hay usuarios creados.")
     else:
-        nombres = [u[1] for u in usuarios]
-        sel = st.selectbox("Selecciona tu usuario", nombres, key="alin_user")
+        col1, col2 = st.columns(2)
+        with col1:
+            sel = st.selectbox("Usuario", [u[1] for u in usuarios])
         uid = next(u[0] for u in usuarios if u[1] == sel)
         equipos = get_equipos(uid)
         if not equipos:
             st.warning("Este usuario no tiene equipo.")
         else:
-            eq_nombres = [e[1] for e in equipos]
-            eq_sel = st.selectbox("Selecciona equipo", eq_nombres, key="alin_eq")
+            with col2:
+                eq_sel = st.selectbox("Equipo", [e[1] for e in equipos])
             equipo_id = next(e[0] for e in equipos if e[1] == eq_sel)
-            jornada = st.number_input("Jornada", min_value=1, max_value=7, value=1, key="alin_jornada")
+            presupuesto = get_presupuesto(equipo_id)
+
+            st.markdown(f"""
+            <div style="background:#e8f5ee;border-radius:10px;padding:10px 16px;margin:1rem 0;display:flex;align-items:center;gap:8px;">
+              <span style="font-size:18px;">💰</span>
+              <span style="color:#085041;font-weight:500;">Presupuesto restante: <strong>${presupuesto:.1f}M</strong></span>
+            </div>""", unsafe_allow_html=True)
+
+            jugadores = get_jugadores_equipo(equipo_id)
+            if not jugadores:
+                st.info("El equipo está vacío.")
+            else:
+                pos_labels = {"G": "Portero", "D": "Defensa", "M": "Centrocampista", "F": "Delantero"}
+                pos_order = {"G": 1, "D": 2, "M": 3, "F": 4}
+                total = 0
+
+                for pos_key in ["G", "D", "M", "F"]:
+                    jugadores_pos = [j for j in jugadores if j[2] == pos_key]
+                    if not jugadores_pos:
+                        continue
+                    st.markdown(f'<p class="seccion-titulo">{pos_labels[pos_key]}s</p>', unsafe_allow_html=True)
+                    for jug_id, nombre, pos, precio, capitan, pts, foto_url in jugadores_pos:
+                        cap_badge = '<span class="player-cap">👑 Capitán</span>' if capitan else ""
+                        if foto_url:
+                            foto_html = f'<img class="player-foto" src="{foto_url}">'
+                        else:
+                            iniciales = nombre[:2].upper()
+                            foto_html = f'<div class="player-avatar">{iniciales}</div>'
+                        st.markdown(f"""
+                        <div class="player-card">
+                          {foto_html}
+                          <div style="flex:1;min-width:0;">
+                            <p class="player-nombre">{nombre} {cap_badge}</p>
+                            <p class="player-info">${precio}M</p>
+                          </div>
+                          <span class="player-pts">{pts:.0f} pts</span>
+                        </div>""", unsafe_allow_html=True)
+                        total += pts
+
+                    # Botón capitán
+                    opts = {j[1]: j[0] for j in jugadores_pos if not j[4]}
+                    if opts:
+                        c1, c2 = st.columns([3, 1])
+                        with c1:
+                            nuevo_cap = st.selectbox(f"Cambiar capitán ({pos_labels[pos_key]})", ["— sin cambios —"] + list(opts.keys()), key=f"cap_sel_{pos_key}")
+                        with c2:
+                            st.write("")
+                            if st.button("👑 Asignar", key=f"cap_btn_{pos_key}") and nuevo_cap != "— sin cambios —":
+                                cambiar_capitan(equipo_id, opts[nuevo_cap])
+                                st.success(f"👑 {nuevo_cap} es el nuevo capitán")
+                                st.rerun()
+
+                st.markdown(f"""
+                <div style="background:#1a7a4a;border-radius:10px;padding:12px 18px;margin-top:1rem;display:flex;justify-content:space-between;align-items:center;">
+                  <span style="color:white;font-weight:500;">Total del equipo</span>
+                  <span style="color:white;font-size:22px;font-weight:600;">{total:.0f} pts</span>
+                </div>""", unsafe_allow_html=True)
+
+                historial = get_puntos_jornada(equipo_id)
+                if historial:
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    st.markdown('<p class="seccion-titulo">Evolución por jornada</p>', unsafe_allow_html=True)
+                    import pandas as pd
+                    df = pd.DataFrame(historial, columns=["Jornada", "Puntos"])
+                    st.line_chart(df.set_index("Jornada"), color="#1a7a4a")
+
+# ── MI ALINEACIÓN ─────────────────────────
+elif pagina == "⚽ Mi alineación":
+    st.markdown("""
+    <div class="fifa-header">
+      <div class="fifa-header-logo">⚽</div>
+      <div><p class="fifa-header-title">Mi alineación</p>
+      <p class="fifa-header-sub">Selecciona tu once titular</p></div>
+    </div>""", unsafe_allow_html=True)
+
+    usuarios = get_usuarios()
+    if not usuarios:
+        st.warning("No hay usuarios creados.")
+    else:
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            sel = st.selectbox("Usuario", [u[1] for u in usuarios], key="alin_user")
+        uid = next(u[0] for u in usuarios if u[1] == sel)
+        equipos = get_equipos(uid)
+        if not equipos:
+            st.warning("Este usuario no tiene equipo.")
+        else:
+            with col2:
+                eq_sel = st.selectbox("Equipo", [e[1] for e in equipos], key="alin_eq")
+            equipo_id = next(e[0] for e in equipos if e[1] == eq_sel)
+            with col3:
+                jornada = st.number_input("Jornada", min_value=1, max_value=7, value=1, key="alin_jornada")
             pagina_alineacion(equipo_id, int(jornada))
 
-# ──────────────────────────────────────────
-#  CREAR USUARIO / EQUIPO
-# ──────────────────────────────────────────
+# ── CREAR USUARIO / EQUIPO ────────────────
 elif pagina == "➕ Crear usuario/equipo":
-    st.markdown("## ➕ Crear usuario y equipo")
+    st.markdown("""
+    <div class="fifa-header">
+      <div class="fifa-header-logo">➕</div>
+      <div><p class="fifa-header-title">Crear usuario y equipo</p>
+      <p class="fifa-header-sub">Añade participantes a la liga</p></div>
+    </div>""", unsafe_allow_html=True)
 
     tab1, tab2 = st.tabs(["👤 Nuevo usuario", "🏟️ Nuevo equipo"])
-
     with tab1:
-        st.markdown("### Crear usuario")
         nombre_usuario = st.text_input("Tu nombre")
         if st.button("Crear usuario", type="primary"):
             if nombre_usuario.strip():
                 crear_usuario(nombre_usuario.strip())
-                st.success(f"✅ Usuario **{nombre_usuario}** creado correctamente.")
+                st.success(f"✅ Usuario **{nombre_usuario}** creado.")
             else:
                 st.error("Escribe un nombre.")
-
     with tab2:
-        st.markdown("### Crear equipo")
         usuarios = get_usuarios()
         if not usuarios:
             st.warning("Primero crea un usuario.")
         else:
-            nombres = [u[1] for u in usuarios]
-            sel_u = st.selectbox("Selecciona usuario", nombres, key="crear_eq_user")
+            sel_u = st.selectbox("Usuario", [u[1] for u in usuarios], key="crear_eq_user")
             uid = next(u[0] for u in usuarios if u[1] == sel_u)
-            nombre_equipo = st.text_input("Nombre de tu equipo")
+            nombre_equipo = st.text_input("Nombre del equipo")
             if st.button("Crear equipo", type="primary"):
                 if nombre_equipo.strip():
                     crear_equipo(uid, nombre_equipo.strip())
-                    st.success(f"✅ Equipo **{nombre_equipo}** creado con $100M de presupuesto.")
+                    st.success(f"✅ Equipo **{nombre_equipo}** creado con $100M.")
                 else:
-                    st.error("Escribe un nombre para el equipo.")
+                    st.error("Escribe un nombre.")
 
-# ──────────────────────────────────────────
-#  BUSCAR JUGADORES
-# ──────────────────────────────────────────
+# ── BUSCAR JUGADORES ──────────────────────
 elif pagina == "🔍 Buscar jugadores":
-    st.markdown("## 🔍 Buscar y añadir jugadores")
+    st.markdown("""
+    <div class="fifa-header">
+      <div class="fifa-header-logo">🔍</div>
+      <div><p class="fifa-header-title">Buscar jugadores</p>
+      <p class="fifa-header-sub">Añade jugadores a tu equipo</p></div>
+    </div>""", unsafe_allow_html=True)
 
-    api_key = os.getenv("API_FOOTBALL_KEY", "")
     if not api_key or api_key == "TU_API_KEY_AQUI":
-        st.error("⚠️ Necesitas configurar tu API key. Ve a **⚙️ Configuración API**.")
+        st.error("⚠️ Configura tu API key en ⚙️ Configuración API.")
     else:
         col1, col2 = st.columns([3, 1])
         with col1:
             nombre_busqueda = st.text_input("Nombre del jugador", placeholder="ej: Pedri, Mbappé, Yamal...")
         with col2:
-            st.write("")
             st.write("")
             buscar = st.button("🔍 Buscar", type="primary")
 
@@ -232,78 +389,68 @@ elif pagina == "🔍 Buscar jugadores":
                 resultados = data.get("response", [])
 
             if not resultados:
-                st.warning("No se encontraron jugadores. Prueba con otro nombre.")
+                st.warning("No encontrado. Prueba con otro nombre.")
             else:
-                st.markdown(f"### Resultados para '{nombre_busqueda}'")
-
                 equipos = get_equipos()
-                if not equipos:
-                    st.warning("Primero crea un equipo.")
-                else:
+                if equipos:
                     eq_opciones = {f"{e[2]} — {e[1]}": e[0] for e in equipos}
                     eq_sel = st.selectbox("Añadir al equipo:", list(eq_opciones.keys()))
                     equipo_destino = eq_opciones[eq_sel]
                     presupuesto = get_presupuesto(equipo_destino)
-                    st.info(f"💰 Presupuesto disponible: **${presupuesto:.1f}M**")
-
-                    pos_icons = {"G": "🧤", "D": "🛡️", "M": "⚙️", "F": "⚡"}
+                    st.markdown(f'<div style="background:#e8f5ee;border-radius:8px;padding:8px 12px;color:#085041;font-size:13px;margin-bottom:1rem;">💰 Presupuesto: <strong>${presupuesto:.1f}M</strong></div>', unsafe_allow_html=True)
 
                     for item in resultados[:8]:
                         p = item["player"]
-                        pos = "M"
-                        icon = pos_icons.get(pos, "⚽")
+                        c1, c2, c3, c4, c5 = st.columns([1, 3, 1, 2, 2])
+                        with c1:
+                            st.write("⚽")
+                        with c2:
+                            st.write(f"**{p['name']}**")
+                            st.caption(p.get('nationality',''))
+                        with c3:
+                            st.write("M")
+                        with c4:
+                            precio = st.number_input("$M", min_value=0.0, max_value=20.0, value=7.0, step=0.5, key=f"precio_{p['id']}")
+                        with c5:
+                            es_cap = st.checkbox("Cap", key=f"cap_{p['id']}")
+                            if st.button("➕", key=f"add_{p['id']}"):
+                                if jugador_ya_en_equipo(equipo_destino, p['id']):
+                                    st.warning("Ya está en tu equipo.")
+                                elif precio > presupuesto:
+                                    st.error("Sin presupuesto.")
+                                elif contar_jugadores(equipo_destino) >= 15:
+                                    st.error("Equipo lleno.")
+                                else:
+                                    añadir_jugador(equipo_destino, p['id'], p['name'], "M", precio, es_cap)
+                                    st.success(f"✅ {p['name']} añadido.")
+                                    st.rerun()
+                        st.divider()
 
-                        with st.container():
-                            c1, c2, c3, c4, c5 = st.columns([1, 3, 1, 2, 2])
-                            with c1:
-                                st.write(icon)
-                            with c2:
-                                st.write(f"**{p['name']}**  \n{p.get('nationality','')}")
-                            with c3:
-                                st.write(pos)
-                            with c4:
-                                precio = st.number_input("Precio $M", min_value=0.0, max_value=20.0, value=7.0, step=0.5, key=f"precio_{p['id']}")
-                            with c5:
-                                es_cap = st.checkbox("Capitán", key=f"cap_{p['id']}")
-                                if st.button("➕ Añadir", key=f"add_{p['id']}"):
-                                    if jugador_ya_en_equipo(equipo_destino, p['id']):
-                                        st.warning("Este jugador ya está en tu equipo.")
-                                    elif precio > presupuesto:
-                                        st.error(f"Sin presupuesto. Tienes ${presupuesto:.1f}M")
-                                    elif contar_jugadores(equipo_destino) >= 15:
-                                        st.error("Equipo lleno (máx. 15 jugadores).")
-                                    else:
-                                        añadir_jugador(equipo_destino, p['id'], p['name'], pos, precio, es_cap)
-                                        st.success(f"✅ {p['name']} añadido al equipo.")
-                                        st.rerun()
-                            st.divider()
-
-# ──────────────────────────────────────────
-#  ACTUALIZAR PUNTOS
-# ──────────────────────────────────────────
+# ── ACTUALIZAR PUNTOS ─────────────────────
 elif pagina == "🔄 Actualizar puntos":
-    st.markdown("## 🔄 Actualizar puntos")
+    st.markdown("""
+    <div class="fifa-header">
+      <div class="fifa-header-logo">🔄</div>
+      <div><p class="fifa-header-title">Actualizar puntos</p>
+      <p class="fifa-header-sub">Tras cada jornada del Mundial</p></div>
+    </div>""", unsafe_allow_html=True)
 
-    api_key = os.getenv("API_FOOTBALL_KEY", "")
     if not api_key or api_key == "TU_API_KEY_AQUI":
-        st.error("⚠️ Necesitas configurar tu API key.")
+        st.error("⚠️ Configura tu API key.")
     else:
-        st.info("Actualiza los puntos después de que terminen los partidos de cada jornada.")
-
         col1, col2 = st.columns([2, 1])
         with col1:
             jornada = st.number_input("Número de jornada", min_value=1, max_value=7, value=1)
         with col2:
             st.write("")
-            st.write("")
             if st.button("🔄 Actualizar ahora", type="primary"):
-                with st.spinner(f"Calculando puntos de jornada {jornada}..."):
+                with st.spinner(f"Calculando jornada {jornada}..."):
                     actualizar_puntos_jornada(int(jornada))
                 st.success(f"✅ Jornada {jornada} actualizada.")
                 st.balloons()
 
-        st.divider()
-        st.markdown("### 📅 Calendario del Mundial 2026")
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown('<p class="seccion-titulo">Calendario del Mundial 2026</p>', unsafe_allow_html=True)
         st.markdown("""
         | Fase | Fechas |
         |---|---|
@@ -316,26 +463,28 @@ elif pagina == "🔄 Actualizar puntos":
         | Final | 19 julio 2026 |
         """)
 
-# ──────────────────────────────────────────
-#  CONFIGURACIÓN API
-# ──────────────────────────────────────────
+# ── CONFIGURACIÓN API ─────────────────────
 elif pagina == "⚙️ Configuración API":
-    st.markdown("## ⚙️ Configuración API")
+    st.markdown("""
+    <div class="fifa-header">
+      <div class="fifa-header-logo">⚙️</div>
+      <div><p class="fifa-header-title">Configuración API</p>
+      <p class="fifa-header-sub">Estado de la conexión</p></div>
+    </div>""", unsafe_allow_html=True)
 
-    api_key = os.getenv("API_FOOTBALL_KEY", "")
     if api_key and api_key != "TU_API_KEY_AQUI":
         st.success("✅ API key detectada y activa")
         if st.button("🧪 Probar conexión"):
             with st.spinner("Conectando..."):
                 data = _api_get("status", {})
-            if data:
+            if data and data.get("response"):
                 subs = data.get("response", {}).get("subscription", {})
                 reqs = data.get("response", {}).get("requests", {})
                 st.success("✅ Conexión exitosa")
                 col1, col2, col3 = st.columns(3)
-                col1.metric("Plan", subs.get("plan", "Free"))
+                col1.metric("Plan", subs.get("plan", "—"))
                 col2.metric("Requests hoy", reqs.get("current", 0))
-                col3.metric("Límite diario", reqs.get("limit_day", 100))
+                col3.metric("Límite diario", reqs.get("limit_day", "—"))
             else:
                 st.error("❌ No se pudo conectar.")
     else:
