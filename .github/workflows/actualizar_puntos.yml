@@ -31,4 +31,6 @@ jobs:
           TELEGRAM_CHAT_NAYADE: ${{ secrets.TELEGRAM_CHAT_NAYADE }}
           TELEGRAM_CHAT_MIKEL: ${{ secrets.TELEGRAM_CHAT_MIKEL }}
           TELEGRAM_CHAT_JULEN: ${{ secrets.TELEGRAM_CHAT_JULEN }}
-        run: python auto_actualizar.py
+        run: |
+          python actualizar_estados.py
+          python auto_actualizar.py

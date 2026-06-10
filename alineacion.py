@@ -69,6 +69,7 @@ def guardar_alineacion(equipo_id: int, jornada: int, titulares: list, suplentes:
 
 def render_campo(titulares_por_pos: dict, formacion: str):
     """Renderiza el campo de fútbol con los jugadores."""
+    estados = get_estados_jugadores()
     pos_data = {}
     for jug in titulares_por_pos.get("G", []):
         pos_data.setdefault("G", []).append(jug)
@@ -79,16 +80,19 @@ def render_campo(titulares_por_pos: dict, formacion: str):
     for jug in titulares_por_pos.get("F", []):
         pos_data.setdefault("F", []).append(jug)
 
-    def jugadores_html(jugs):
+    def jugadores_html(jugs, estados={}):
         html = ""
         for j in jugs:
             nombre = j["nombre"].split()[-1]
             foto = j.get("foto_url", "")
+            jug_id = j.get("jugador_id")
             iniciales = nombre[:2].upper()
+            estado = estados.get(jug_id, "disponible")
+            indicador = '<div style="position:absolute;bottom:-2px;right:-2px;width:14px;height:14px;border-radius:50%;background:#22c55e;border:2px solid white;font-size:8px;display:flex;align-items:center;justify-content:center;">✓</div>' if estado == "disponible" else '<div style="position:absolute;bottom:-2px;right:-2px;width:14px;height:14px;border-radius:50%;background:#ef4444;border:2px solid white;font-size:8px;display:flex;align-items:center;justify-content:center;">✕</div>'
             if foto:
-                img_html = f'<img src="{foto}" style="width:40px;height:40px;border-radius:50%;border:2px solid white;object-fit:cover;object-position:top;">'
+                img_html = f'<div style="position:relative;display:inline-block;"><img src="{foto}" style="width:40px;height:40px;border-radius:50%;border:2px solid white;object-fit:cover;object-position:top;">{indicador}</div>'
             else:
-                img_html = f'<div style="width:40px;height:40px;border-radius:50%;background:#1D9E75;border:2px solid white;display:flex;align-items:center;justify-content:center;font-weight:500;font-size:12px;color:white;">{iniciales}</div>'
+                img_html = f'<div style="position:relative;display:inline-block;"><div style="width:40px;height:40px;border-radius:50%;background:#1D9E75;border:2px solid white;display:flex;align-items:center;justify-content:center;font-weight:500;font-size:12px;color:white;">{iniciales}</div>{indicador}</div>'
             html += f"""
             <div class="player">
                 {img_html}
@@ -110,16 +114,16 @@ def render_campo(titulares_por_pos: dict, formacion: str):
                 </style>
 
                 <div style="position:absolute;top:8px;left:0;right:0;">
-                    <div class="fila">{jugadores_html(pos_data.get("F", []))}</div>
+                    <div class="fila">{jugadores_html(pos_data.get("F", []), estados)}</div>
                 </div>
                 <div style="position:absolute;top:calc(8px + 130px);left:0;right:0;">
-                    <div class="fila">{jugadores_html(pos_data.get("M", []))}</div>
+                    <div class="fila">{jugadores_html(pos_data.get("M", []), estados)}</div>
                 </div>
                 <div style="position:absolute;top:calc(8px + 260px);left:0;right:0;">
-                    <div class="fila">{jugadores_html(pos_data.get("D", []))}</div>
+                    <div class="fila">{jugadores_html(pos_data.get("D", []), estados)}</div>
                 </div>
                 <div style="position:absolute;bottom:8px;left:0;right:0;">
-                    <div class="fila">{jugadores_html(pos_data.get("G", []))}</div>
+                    <div class="fila">{jugadores_html(pos_data.get("G", []), estados)}</div>
                 </div>
             </div>
         </div>
