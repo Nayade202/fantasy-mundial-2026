@@ -1,0 +1,30 @@
+name: Actualizar Puntos Fantasy Mundial
+
+on:
+  schedule:
+    # Ejecutar cada día a las 23:00 UTC (01:00 hora española)
+    - cron: '0 23 * * *'
+  workflow_dispatch:  # Permite ejecutarlo manualmente desde GitHub
+
+jobs:
+  actualizar:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v3
+
+      - name: Configurar Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependencias
+        run: pip install python-dotenv supabase requests
+
+      - name: Ejecutar actualización de puntos
+        env:
+          API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python auto_actualizar.py
