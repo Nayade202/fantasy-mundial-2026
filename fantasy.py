@@ -376,14 +376,45 @@ def actualizar_puntos_jornada(jornada: int):
         print("⚠️  No se encontraron partidos. Verifica la API key y la jornada.")
         return
 
-    from database import get_equipos, get_jugadores_equipo, guardar_puntos
+    from database import get_equipos, get_jugadores_equipo, guardar_puntos, get_db
 
+    # Obtener alineaciones guardadas para esta jornada
+    db = get_db()
+    alin_res = db.table("alineaciones").select("*").eq("jornada", jornada).execute()
+    alineaciones = alin_res.data or []
+
+    # Si no hay alineaciones guardadas, usar todos los jugadores como antes
+    hay_alineaciones = len(alineaciones) > 0
+
+    if hay_alineaciones:
+        print(f"  📋 Usando alineaciones guardadas para jornada {jornada}")
+        # Construir lista de titulares y suplentes por equipo
+        titulares_por_equipo = {}
+        suplentes_por_equipo = {}
+        for a in alineaciones:
+            eid = a["equipo_id"]
+            if a["es_titular"]:
+                titulares_por_equipo.setdefault(eid, set()).add(a["jugador_id"])
+            else:
+                suplentes_por_equipo.setdefault(eid, [])
+                suplentes_por_equipo[eid].append((a["orden_suplente"], a["jugador_id"]))
+        # Ordenar suplentes por orden
+        for eid in suplentes_por_equipo:
+            suplentes_por_equipo[eid].sort()
+    else:
+        print(f"  ⚠️  Sin alineaciones para jornada {jornada} — puntuando todos los jugadores")
+
+    # Obtener jugadores con capitán
     equipos = get_equipos()
-    fantasy_jugadores = []
+    capitan_por_equipo = {}
+    todos_jugadores_equipo = {}
     for equipo in equipos:
         equipo_id = equipo[0]
-        for jug in get_jugadores_equipo(equipo_id):
-            fantasy_jugadores.append((equipo_id, jug[0], jug[4]))
+        jugs = get_jugadores_equipo(equipo_id)
+        todos_jugadores_equipo[equipo_id] = jugs
+        for jug in jugs:
+            if jug[4]:  # es_capitan
+                capitan_por_equipo[equipo_id] = jug[0]
 
     for partido in partidos:
         fixture_id = partido["fixture"]["id"]
@@ -394,14 +425,39 @@ def actualizar_puntos_jornada(jornada: int):
             continue
 
         print(f"  ⚽ Procesando fixture {fixture_id}…")
-        for equipo_id, jugador_id, es_capitan in fantasy_jugadores:
-            resultado = calcular_puntos_jugador(jugador_id, fixture_id)
-            pts = resultado["total"]
-            if es_capitan:
-                pts *= 2
 
-            guardar_puntos(equipo_id, jugador_id, fixture_id, jornada,
-                          pts, json.dumps(resultado["desglose"]))
+        for equipo_id, jugs in todos_jugadores_equipo.items():
+            if hay_alineaciones:
+                titulares = titulares_por_equipo.get(equipo_id, set())
+                suplentes = suplentes_por_equipo.get(equipo_id, [])
+                jugadores_a_puntuar = []
+
+                for jug in jugs:
+                    jug_id = jug[0]
+                    if jug_id in titulares:
+                        # Comprobar si el titular jugó
+                        resultado = calcular_puntos_jugador(jug_id, fixture_id)
+                        if resultado["total"] == 0 and "no_jugó" in resultado["desglose"]:
+                            # Titular no jugó — buscar suplente
+                            print(f"    ↩️  {jug[1]} no jugó, buscando suplente...")
+                            for _, sup_id in suplentes:
+                                sup_resultado = calcular_puntos_jugador(sup_id, fixture_id)
+                                if sup_resultado["total"] > 0 or "no_jugó" not in sup_resultado["desglose"]:
+                                    jugadores_a_puntuar.append((sup_id, sup_resultado))
+                                    suplentes = [(o, s) for o, s in suplentes if s != sup_id]
+                                    break
+                        else:
+                            jugadores_a_puntuar.append((jug_id, resultado))
+            else:
+                jugadores_a_puntuar = [(jug[0], calcular_puntos_jugador(jug[0], fixture_id)) for jug in jugs]
+
+            capitan_id = capitan_por_equipo.get(equipo_id)
+            for jugador_id, resultado in jugadores_a_puntuar:
+                pts = resultado["total"]
+                if jugador_id == capitan_id:
+                    pts *= 2
+                guardar_puntos(equipo_id, jugador_id, fixture_id, jornada,
+                              pts, json.dumps(resultado["desglose"]))
 
     print(f"✅ Jornada {jornada} actualizada\n")
 
