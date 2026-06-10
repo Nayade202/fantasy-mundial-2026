@@ -1,17 +1,18 @@
 """
-Carga automática de los 3 equipos del Fantasy Mundial 2026
-IDs verificados de api-football.com
+Carga automática de los 3 equipos del Fantasy Mundial 2026 en Supabase
 Ejecutar UNA SOLA VEZ: python cargar_equipos.py
 """
 
-import sqlite3
-DB_FILE = "fantasy_mundial.db"
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
+from database import crear_usuario, crear_equipo, añadir_jugador, get_usuarios
 
 EQUIPOS = [
     {
         "usuario": "Nayade", "equipo": "Equipo Nayade",
         "jugadores": [
-            # (id_api, nombre, posicion, precio)
             (246,    "Emiliano Martínez",   "G", 5.5),
             (280,    "Alisson Becker",       "G", 5.0),
             (622,    "Aymeric Laporte",      "D", 6.0),
@@ -102,63 +103,15 @@ EQUIPOS = [
     }
 ]
 
-# ── BD ─────────────────────────────────────
-def init_db():
-    con = sqlite3.connect(DB_FILE)
-    con.executescript("""
-        CREATE TABLE IF NOT EXISTS usuarios (id INTEGER PRIMARY KEY AUTOINCREMENT, nombre TEXT UNIQUE NOT NULL);
-        CREATE TABLE IF NOT EXISTS equipos (id INTEGER PRIMARY KEY AUTOINCREMENT, usuario_id INTEGER, nombre TEXT NOT NULL, presupuesto REAL DEFAULT 100.0);
-        CREATE TABLE IF NOT EXISTS jugadores_equipo (equipo_id INTEGER, jugador_id INTEGER, nombre TEXT, posicion TEXT, precio REAL DEFAULT 0.0, es_capitan INTEGER DEFAULT 0, PRIMARY KEY(equipo_id, jugador_id));
-        CREATE TABLE IF NOT EXISTS puntos_historico (id INTEGER PRIMARY KEY AUTOINCREMENT, equipo_id INTEGER, jugador_id INTEGER, fixture_id INTEGER, jornada INTEGER, puntos REAL DEFAULT 0, desglose TEXT, calculado TEXT DEFAULT (datetime('now')), UNIQUE(equipo_id, jugador_id, fixture_id));
-    """)
-    con.commit()
-    con.close()
-
-def limpiar_db():
-    con = sqlite3.connect(DB_FILE)
-    con.executescript("DELETE FROM puntos_historico; DELETE FROM jugadores_equipo; DELETE FROM equipos; DELETE FROM usuarios;")
-    con.commit()
-    con.close()
-
-def crear_usuario(nombre):
-    con = sqlite3.connect(DB_FILE)
-    con.execute("INSERT OR IGNORE INTO usuarios (nombre) VALUES (?)", (nombre,))
-    con.commit()
-    uid = con.execute("SELECT id FROM usuarios WHERE nombre=?", (nombre,)).fetchone()[0]
-    con.close()
-    return uid
-
-def crear_equipo(uid, nombre):
-    con = sqlite3.connect(DB_FILE)
-    cur = con.execute("INSERT INTO equipos (usuario_id, nombre) VALUES (?,?)", (uid, nombre))
-    con.commit()
-    eid = cur.lastrowid
-    con.close()
-    return eid
-
-def añadir_jugador(eid, jid, nombre, pos, precio):
-    con = sqlite3.connect(DB_FILE)
-    con.execute("INSERT OR REPLACE INTO jugadores_equipo (equipo_id,jugador_id,nombre,posicion,precio,es_capitan) VALUES (?,?,?,?,?,0)",
-                (eid, jid, nombre, pos, precio))
-    con.execute("UPDATE equipos SET presupuesto=presupuesto-? WHERE id=?", (precio, eid))
-    con.commit()
-    con.close()
-
-# ── MAIN ───────────────────────────────────
 if __name__ == "__main__":
-    print("🏆 Cargando equipos del Fantasy Mundial 2026...\n")
-    init_db()
+    print("🏆 Cargando equipos en Supabase...\n")
 
-    con = sqlite3.connect(DB_FILE)
-    n = con.execute("SELECT COUNT(*) FROM usuarios").fetchone()[0]
-    con.close()
-    if n > 0:
-        resp = input(f"Ya hay {n} usuarios en la BD. ¿Borrar todo y recargar? (s/n): ")
+    usuarios = get_usuarios()
+    if usuarios:
+        resp = input(f"Ya hay {len(usuarios)} usuarios en Supabase. ¿Continuar igualmente? (s/n): ")
         if resp.lower() != "s":
             print("Cancelado.")
             exit()
-        limpiar_db()
-        print("🗑️  Datos anteriores borrados.\n")
 
     for datos in EQUIPOS:
         uid = crear_usuario(datos["usuario"])
@@ -166,13 +119,9 @@ if __name__ == "__main__":
         print(f"\n👤 {datos['usuario']} — {datos['equipo']}")
         for jid, nombre, pos, precio in datos["jugadores"]:
             añadir_jugador(eid, jid, nombre, pos, precio)
-            print(f"  ✅ {nombre} (ID: {jid})")
-
-    con = sqlite3.connect(DB_FILE)
-    total = con.execute("SELECT COUNT(*) FROM jugadores_equipo").fetchone()[0]
-    con.close()
+            print(f"  ✅ {nombre}")
 
     print(f"\n{'='*50}")
-    print(f"✅ {total} jugadores cargados correctamente")
-    print("\n🚀 Lanza la app: streamlit run app.py")
+    print("✅ Equipos cargados en Supabase")
     print("👑 Elige tu capitán desde 'Mi equipo' en la app")
+    print("🚀 App: https://fantasy-mundial-2026.streamlit.app")
