@@ -23,14 +23,24 @@ def get_deadline(jornada: int):
     db = get_db()
     res = db.table("jornadas_info").select("deadline").eq("jornada", jornada).execute()
     if res.data:
-        return datetime.fromisoformat(res.data[0]["deadline"].replace("Z", "+00:00"))
+        raw = res.data[0]["deadline"]
+        try:
+            if isinstance(raw, str):
+                raw = raw.replace("Z", "+00:00")
+                return datetime.fromisoformat(raw)
+            return raw
+        except Exception:
+            return None
     return None
 
 def is_deadline_passed(jornada: int) -> bool:
     deadline = get_deadline(jornada)
     if not deadline:
         return False
-    return datetime.now(timezone.utc) > deadline
+    ahora = datetime.now(timezone.utc)
+    if deadline.tzinfo is None:
+        deadline = deadline.replace(tzinfo=timezone.utc)
+    return ahora > deadline
 
 def get_alineacion(equipo_id: int, jornada: int):
     db = get_db()
