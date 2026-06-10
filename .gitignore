@@ -1,0 +1,4 @@
+.env
+fantasy_mundial.db
+__pycache__/
+*.pyc
