@@ -1,20 +1,21 @@
 """
-Fantasy Mundial 2026 🏆 — Interfaz Web con Streamlit
+Fantasy Mundial 2026 🏆 — Interfaz Web con Streamlit + Supabase
 Ejecutar: streamlit run app.py
 """
 
 import os
 from dotenv import load_dotenv
-load_dotenv()  # DEBE ir antes de importar fantasy.py
+load_dotenv()
 
 import streamlit as st
-import sqlite3
 import json
-from fantasy import (
-    init_db, crear_usuario, crear_equipo, añadir_jugador,
-    actualizar_puntos_jornada, DB_FILE, _api_get,
-    LEAGUE_ID, SEASON
+from database import (
+    crear_usuario, get_usuarios, crear_equipo, get_equipos,
+    get_presupuesto, añadir_jugador, get_jugadores_equipo,
+    jugador_ya_en_equipo, contar_jugadores, cambiar_capitan,
+    get_clasificacion, get_puntos_jornada
 )
+from fantasy import actualizar_puntos_jornada, _api_get, LEAGUE_ID, SEASON
 
 # ──────────────────────────────────────────
 #  CONFIGURACIÓN DE PÁGINA
@@ -25,134 +26,16 @@ st.set_page_config(
     layout="wide"
 )
 
-# CSS personalizado
 st.markdown("""
 <style>
     .titulo { font-size: 2.5rem; font-weight: bold; text-align: center; color: #1a472a; }
     .subtitulo { text-align: center; color: #666; margin-bottom: 2rem; }
-    .tarjeta { background: #f8f9fa; border-radius: 10px; padding: 1rem; margin: 0.5rem 0; border-left: 4px solid #2ecc71; }
-    .oro { color: #f1c40f; font-size: 1.5rem; }
-    .plata { color: #95a5a6; font-size: 1.5rem; }
-    .bronce { color: #e67e22; font-size: 1.5rem; }
     .pts { font-size: 1.8rem; font-weight: bold; color: #2ecc71; }
 </style>
 """, unsafe_allow_html=True)
 
-# Inicializar BD
-init_db()
-
 # ──────────────────────────────────────────
-#  HELPERS BD
-# ──────────────────────────────────────────
-def get_usuarios():
-    con = sqlite3.connect(DB_FILE)
-    cur = con.cursor()
-    cur.execute("SELECT id, nombre FROM usuarios ORDER BY nombre")
-    rows = cur.fetchall()
-    con.close()
-    return rows
-
-def get_equipos(usuario_id=None):
-    con = sqlite3.connect(DB_FILE)
-    cur = con.cursor()
-    if usuario_id:
-        cur.execute("""
-            SELECT e.id, e.nombre, u.nombre, e.presupuesto
-            FROM equipos e JOIN usuarios u ON u.id = e.usuario_id
-            WHERE e.usuario_id = ?
-        """, (usuario_id,))
-    else:
-        cur.execute("""
-            SELECT e.id, e.nombre, u.nombre, e.presupuesto
-            FROM equipos e JOIN usuarios u ON u.id = e.usuario_id
-        """)
-    rows = cur.fetchall()
-    con.close()
-    return rows
-
-def get_jugadores_equipo(equipo_id):
-    con = sqlite3.connect(DB_FILE)
-    cur = con.cursor()
-    cur.execute("""
-        SELECT j.jugador_id, j.nombre, j.posicion, j.precio, j.es_capitan,
-               COALESCE(SUM(p.puntos), 0) as total_pts
-        FROM jugadores_equipo j
-        LEFT JOIN puntos_historico p
-            ON p.equipo_id = j.equipo_id AND p.jugador_id = j.jugador_id
-        WHERE j.equipo_id = ?
-        GROUP BY j.jugador_id
-        ORDER BY CASE j.posicion WHEN 'G' THEN 1 WHEN 'D' THEN 2 WHEN 'M' THEN 3 WHEN 'F' THEN 4 ELSE 5 END
-    """, (equipo_id,))
-    rows = cur.fetchall()
-    con.close()
-    return rows
-
-def get_clasificacion():
-    con = sqlite3.connect(DB_FILE)
-    cur = con.cursor()
-    cur.execute("""
-        SELECT u.nombre, e.nombre, e.id, COALESCE(SUM(p.puntos), 0) as total
-        FROM equipos e
-        JOIN usuarios u ON u.id = e.usuario_id
-        LEFT JOIN puntos_historico p ON p.equipo_id = e.id
-        GROUP BY e.id
-        ORDER BY total DESC
-    """)
-    rows = cur.fetchall()
-    con.close()
-    return rows
-
-def buscar_jugadores_api(nombre):
-    data = _api_get("players", {
-        "search": nombre,
-        "league": LEAGUE_ID,
-        "season": SEASON
-    })
-    return data.get("response", [])
-
-def contar_jugadores(equipo_id):
-    con = sqlite3.connect(DB_FILE)
-    cur = con.cursor()
-    cur.execute("SELECT COUNT(*) FROM jugadores_equipo WHERE equipo_id=?", (equipo_id,))
-    n = cur.fetchone()[0]
-    con.close()
-    return n
-
-def jugador_ya_en_equipo(equipo_id, jugador_id):
-    con = sqlite3.connect(DB_FILE)
-    cur = con.cursor()
-    cur.execute(
-        "SELECT 1 FROM jugadores_equipo WHERE equipo_id=? AND jugador_id=?",
-        (equipo_id, jugador_id)
-    )
-    existe = cur.fetchone() is not None
-    con.close()
-    return existe
-
-def get_presupuesto(equipo_id):
-    con = sqlite3.connect(DB_FILE)
-    cur = con.cursor()
-    cur.execute("SELECT presupuesto FROM equipos WHERE id=?", (equipo_id,))
-    val = cur.fetchone()[0]
-    con.close()
-    return val
-
-def get_puntos_jornada(equipo_id):
-    con = sqlite3.connect(DB_FILE)
-    cur = con.cursor()
-    cur.execute("""
-        SELECT jornada, SUM(puntos)
-        FROM puntos_historico
-        WHERE equipo_id = ?
-        GROUP BY jornada
-        ORDER BY jornada
-    """, (equipo_id,))
-    rows = cur.fetchall()
-    con.close()
-    return rows
-
-# ──────────────────────────────────────────
-#  SIDEBAR — NAVEGACIÓN
+#  SIDEBAR
 # ──────────────────────────────────────────
 st.sidebar.markdown("## 🏆 Fantasy Mundial 2026")
 st.sidebar.markdown("---")
@@ -173,7 +56,7 @@ else:
     st.sidebar.success("✅ API conectada")
 
 # ──────────────────────────────────────────
-#  PÁGINA: CLASIFICACIÓN
+#  CLASIFICACIÓN
 # ──────────────────────────────────────────
 if pagina == "🏅 Clasificación":
     st.markdown('<div class="titulo">🏆 Fantasy Mundial 2026</div>', unsafe_allow_html=True)
@@ -184,9 +67,9 @@ if pagina == "🏅 Clasificación":
     if not clasificacion:
         st.info("Aún no hay equipos creados. Ve a **Crear usuario/equipo** para empezar.")
     else:
-        medallas = ["🥇", "🥈", "🥉"]
-        for i, (usuario, equipo, equipo_id, pts) in enumerate(clasificacion):
-            medal = medallas[i] if i < 3 else f"{i+1}."
+        medallas = {1: "🥇", 2: "🥈", 3: "🥉"}
+        for i, (usuario, equipo, equipo_id, pts) in enumerate(clasificacion, 1):
+            medal = medallas.get(i, f"{i}.")
             col1, col2, col3 = st.columns([1, 4, 2])
             with col1:
                 st.markdown(f"<div style='font-size:2rem;text-align:center'>{medal}</div>", unsafe_allow_html=True)
@@ -196,7 +79,6 @@ if pagina == "🏅 Clasificación":
                 st.markdown(f"<div class='pts'>{pts:.0f} pts</div>", unsafe_allow_html=True)
             st.divider()
 
-        # Gráfico de barras
         if len(clasificacion) > 1:
             st.markdown("### 📊 Comparativa de puntos")
             import pandas as pd
@@ -204,7 +86,7 @@ if pagina == "🏅 Clasificación":
             st.bar_chart(df.set_index("Usuario")["Puntos"])
 
 # ──────────────────────────────────────────
-#  PÁGINA: MI EQUIPO
+#  MI EQUIPO
 # ──────────────────────────────────────────
 elif pagina == "👤 Mi equipo":
     st.markdown("## 👤 Mi equipo")
@@ -235,9 +117,9 @@ elif pagina == "👤 Mi equipo":
                 pos_icons = {"G": "🧤", "D": "🛡️", "M": "⚙️", "F": "⚡"}
                 total = 0
                 for jug_id, nombre, pos, precio, capitan, pts in jugadores:
-                    cap = " © CAPITÁN" if capitan else ""
+                    cap = " 👑 CAPITÁN" if capitan else ""
                     icon = pos_icons.get(pos, "⚽")
-                    col1, col2, col3, col4 = st.columns([1, 4, 2, 2])
+                    col1, col2, col3, col4, col5 = st.columns([1, 4, 2, 2, 2])
                     with col1:
                         st.write(icon)
                     with col2:
@@ -246,12 +128,19 @@ elif pagina == "👤 Mi equipo":
                         st.write(f"${precio}M")
                     with col4:
                         st.write(f"**{pts:.0f} pts**")
+                    with col5:
+                        if not capitan:
+                            if st.button("👑 Hacer capitán", key=f"cap_btn_{jug_id}"):
+                                cambiar_capitan(equipo_id, jug_id)
+                                st.success(f"👑 {nombre} es el nuevo capitán")
+                                st.rerun()
+                        else:
+                            st.write("👑 Capitán")
                     total += pts
 
                 st.divider()
                 st.markdown(f"### 📊 Total: **{total:.0f} puntos**")
 
-                # Evolución por jornada
                 historial = get_puntos_jornada(equipo_id)
                 if historial:
                     st.markdown("### 📈 Evolución por jornada")
@@ -260,7 +149,7 @@ elif pagina == "👤 Mi equipo":
                     st.line_chart(df.set_index("Jornada"))
 
 # ──────────────────────────────────────────
-#  PÁGINA: CREAR USUARIO / EQUIPO
+#  CREAR USUARIO / EQUIPO
 # ──────────────────────────────────────────
 elif pagina == "➕ Crear usuario/equipo":
     st.markdown("## ➕ Crear usuario y equipo")
@@ -272,7 +161,7 @@ elif pagina == "➕ Crear usuario/equipo":
         nombre_usuario = st.text_input("Tu nombre")
         if st.button("Crear usuario", type="primary"):
             if nombre_usuario.strip():
-                uid = crear_usuario(nombre_usuario.strip())
+                crear_usuario(nombre_usuario.strip())
                 st.success(f"✅ Usuario **{nombre_usuario}** creado correctamente.")
             else:
                 st.error("Escribe un nombre.")
@@ -289,13 +178,13 @@ elif pagina == "➕ Crear usuario/equipo":
             nombre_equipo = st.text_input("Nombre de tu equipo")
             if st.button("Crear equipo", type="primary"):
                 if nombre_equipo.strip():
-                    eid = crear_equipo(uid, nombre_equipo.strip())
+                    crear_equipo(uid, nombre_equipo.strip())
                     st.success(f"✅ Equipo **{nombre_equipo}** creado con $100M de presupuesto.")
                 else:
                     st.error("Escribe un nombre para el equipo.")
 
 # ──────────────────────────────────────────
-#  PÁGINA: BUSCAR JUGADORES
+#  BUSCAR JUGADORES
 # ──────────────────────────────────────────
 elif pagina == "🔍 Buscar jugadores":
     st.markdown("## 🔍 Buscar y añadir jugadores")
@@ -314,14 +203,14 @@ elif pagina == "🔍 Buscar jugadores":
 
         if buscar and nombre_busqueda:
             with st.spinner("Buscando..."):
-                resultados = buscar_jugadores_api(nombre_busqueda)
+                data = _api_get("players/profiles", {"search": nombre_busqueda.replace(" ", "%20")})
+                resultados = data.get("response", [])
 
             if not resultados:
                 st.warning("No se encontraron jugadores. Prueba con otro nombre.")
             else:
                 st.markdown(f"### Resultados para '{nombre_busqueda}'")
 
-                # Selector de equipo para añadir
                 equipos = get_equipos()
                 if not equipos:
                     st.warning("Primero crea un equipo.")
@@ -332,61 +221,47 @@ elif pagina == "🔍 Buscar jugadores":
                     presupuesto = get_presupuesto(equipo_destino)
                     st.info(f"💰 Presupuesto disponible: **${presupuesto:.1f}M**")
 
-                pos_map = {
-                    "Goalkeeper": "G", "Defender": "D",
-                    "Midfielder": "M", "Attacker": "F"
-                }
-                pos_icons = {"G": "🧤", "D": "🛡️", "M": "⚙️", "F": "⚡"}
+                    pos_icons = {"G": "🧤", "D": "🛡️", "M": "⚙️", "F": "⚡"}
 
-                for item in resultados[:8]:
-                    p = item["player"]
-                    stats = item.get("statistics", [{}])[0]
-                    pos_eng = stats.get("games", {}).get("position", "Midfielder")
-                    pos = pos_map.get(pos_eng, "M")
-                    icon = pos_icons.get(pos, "⚽")
+                    for item in resultados[:8]:
+                        p = item["player"]
+                        pos = "M"
+                        icon = pos_icons.get(pos, "⚽")
 
-                    with st.container():
-                        c1, c2, c3, c4, c5 = st.columns([1, 3, 1, 2, 2])
-                        with c1:
-                            st.write(icon)
-                        with c2:
-                            st.write(f"**{p['name']}**  \n{p.get('nationality','')}")
-                        with c3:
-                            st.write(pos)
-                        with c4:
-                            precio = st.number_input(
-                                "Precio $M",
-                                min_value=0.0, max_value=20.0,
-                                value=7.0, step=0.5,
-                                key=f"precio_{p['id']}"
-                            )
-                        with c5:
-                            es_cap = st.checkbox("Capitán", key=f"cap_{p['id']}")
-                            if st.button("➕ Añadir", key=f"add_{p['id']}"):
-                                if jugador_ya_en_equipo(equipo_destino, p['id']):
-                                    st.warning("Este jugador ya está en tu equipo.")
-                                elif precio > presupuesto:
-                                    st.error(f"Sin presupuesto. Tienes ${presupuesto:.1f}M")
-                                elif contar_jugadores(equipo_destino) >= 15:
-                                    st.error("Equipo lleno (máx. 15 jugadores).")
-                                else:
-                                    añadir_jugador(
-                                        equipo_destino, p['id'],
-                                        p['name'], pos, precio, es_cap
-                                    )
-                                    st.success(f"✅ {p['name']} añadido al equipo.")
-                                    st.rerun()
-                        st.divider()
+                        with st.container():
+                            c1, c2, c3, c4, c5 = st.columns([1, 3, 1, 2, 2])
+                            with c1:
+                                st.write(icon)
+                            with c2:
+                                st.write(f"**{p['name']}**  \n{p.get('nationality','')}")
+                            with c3:
+                                st.write(pos)
+                            with c4:
+                                precio = st.number_input("Precio $M", min_value=0.0, max_value=20.0, value=7.0, step=0.5, key=f"precio_{p['id']}")
+                            with c5:
+                                es_cap = st.checkbox("Capitán", key=f"cap_{p['id']}")
+                                if st.button("➕ Añadir", key=f"add_{p['id']}"):
+                                    if jugador_ya_en_equipo(equipo_destino, p['id']):
+                                        st.warning("Este jugador ya está en tu equipo.")
+                                    elif precio > presupuesto:
+                                        st.error(f"Sin presupuesto. Tienes ${presupuesto:.1f}M")
+                                    elif contar_jugadores(equipo_destino) >= 15:
+                                        st.error("Equipo lleno (máx. 15 jugadores).")
+                                    else:
+                                        añadir_jugador(equipo_destino, p['id'], p['name'], pos, precio, es_cap)
+                                        st.success(f"✅ {p['name']} añadido al equipo.")
+                                        st.rerun()
+                            st.divider()
 
 # ──────────────────────────────────────────
-#  PÁGINA: ACTUALIZAR PUNTOS
+#  ACTUALIZAR PUNTOS
 # ──────────────────────────────────────────
 elif pagina == "🔄 Actualizar puntos":
     st.markdown("## 🔄 Actualizar puntos")
 
     api_key = os.getenv("API_FOOTBALL_KEY", "")
     if not api_key or api_key == "TU_API_KEY_AQUI":
-        st.error("⚠️ Necesitas configurar tu API key. Ve a **⚙️ Configuración API**.")
+        st.error("⚠️ Necesitas configurar tu API key.")
     else:
         st.info("Actualiza los puntos después de que terminen los partidos de cada jornada.")
 
@@ -399,7 +274,7 @@ elif pagina == "🔄 Actualizar puntos":
             if st.button("🔄 Actualizar ahora", type="primary"):
                 with st.spinner(f"Calculando puntos de jornada {jornada}..."):
                     actualizar_puntos_jornada(int(jornada))
-                st.success(f"✅ Jornada {jornada} actualizada. ¡Revisa la clasificación!")
+                st.success(f"✅ Jornada {jornada} actualizada.")
                 st.balloons()
 
         st.divider()
@@ -417,25 +292,10 @@ elif pagina == "🔄 Actualizar puntos":
         """)
 
 # ──────────────────────────────────────────
-#  PÁGINA: CONFIGURACIÓN API
+#  CONFIGURACIÓN API
 # ──────────────────────────────────────────
 elif pagina == "⚙️ Configuración API":
     st.markdown("## ⚙️ Configuración API")
-
-    st.markdown("""
-    ### Cómo configurar tu API key
-
-    1. Ve a [dashboard.api-football.com](https://dashboard.api-football.com)
-    2. Copia tu API key
-    3. En el terminal de VS Code, **antes de lanzar la app**, ejecuta:
-    """)
-
-    st.code("set API_FOOTBALL_KEY=tu_key_aqui", language="cmd")
-
-    st.markdown("4. Luego lanza la app:")
-    st.code("streamlit run app.py", language="cmd")
-
-    st.divider()
 
     api_key = os.getenv("API_FOOTBALL_KEY", "")
     if api_key and api_key != "TU_API_KEY_AQUI":
@@ -444,14 +304,14 @@ elif pagina == "⚙️ Configuración API":
             with st.spinner("Conectando..."):
                 data = _api_get("status", {})
             if data:
-                cuenta = data.get("response", {}).get("account", {})
                 subs = data.get("response", {}).get("subscription", {})
+                reqs = data.get("response", {}).get("requests", {})
                 st.success("✅ Conexión exitosa")
                 col1, col2, col3 = st.columns(3)
                 col1.metric("Plan", subs.get("plan", "Free"))
-                col2.metric("Requests hoy", data.get("response", {}).get("requests", {}).get("current", 0))
-                col3.metric("Límite diario", data.get("response", {}).get("requests", {}).get("limit_day", 100))
+                col2.metric("Requests hoy", reqs.get("current", 0))
+                col3.metric("Límite diario", reqs.get("limit_day", 100))
             else:
-                st.error("❌ No se pudo conectar. Verifica tu API key.")
+                st.error("❌ No se pudo conectar.")
     else:
-        st.warning("⚠️ No se detecta API key. Configúrala con el comando de arriba.")
+        st.warning("⚠️ No se detecta API key.")

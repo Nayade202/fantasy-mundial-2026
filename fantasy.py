@@ -376,15 +376,14 @@ def actualizar_puntos_jornada(jornada: int):
         print("⚠️  No se encontraron partidos. Verifica la API key y la jornada.")
         return
 
-    con = sqlite3.connect(DB_FILE)
-    cur = con.cursor()
+    from database import get_equipos, get_jugadores_equipo, guardar_puntos
 
-    # Obtener todos los jugadores de todos los equipos fantasy
-    cur.execute("""
-        SELECT DISTINCT je.equipo_id, je.jugador_id, je.es_capitan
-        FROM jugadores_equipo je
-    """)
-    fantasy_jugadores = cur.fetchall()
+    equipos = get_equipos()
+    fantasy_jugadores = []
+    for equipo in equipos:
+        equipo_id = equipo[0]
+        for jug in get_jugadores_equipo(equipo_id):
+            fantasy_jugadores.append((equipo_id, jug[0], jug[4]))
 
     for partido in partidos:
         fixture_id = partido["fixture"]["id"]
@@ -399,19 +398,11 @@ def actualizar_puntos_jornada(jornada: int):
             resultado = calcular_puntos_jugador(jugador_id, fixture_id)
             pts = resultado["total"]
             if es_capitan:
-                pts *= 2  # capitán dobla puntos
+                pts *= 2
 
-            cur.execute("""
-                INSERT OR REPLACE INTO puntos_historico
-                (equipo_id, jugador_id, fixture_id, jornada, puntos, desglose)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (
-                equipo_id, jugador_id, fixture_id, jornada,
-                pts, json.dumps(resultado["desglose"])
-            ))
+            guardar_puntos(equipo_id, jugador_id, fixture_id, jornada,
+                          pts, json.dumps(resultado["desglose"]))
 
-    con.commit()
-    con.close()
     print(f"✅ Jornada {jornada} actualizada\n")
 
 
