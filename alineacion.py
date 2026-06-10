@@ -80,7 +80,7 @@ def render_campo(titulares_por_pos: dict, formacion: str):
     for jug in titulares_por_pos.get("F", []):
         pos_data.setdefault("F", []).append(jug)
 
-    def jugadores_html(jugs, estados={}):
+    def jugadores_html(jugs, estados={}, pos_label=""):
         html = ""
         for j in jugs:
             nombre = j["nombre"].split()[-1]
@@ -88,49 +88,76 @@ def render_campo(titulares_por_pos: dict, formacion: str):
             jug_id = j.get("jugador_id")
             iniciales = nombre[:2].upper()
             estado = estados.get(jug_id, "disponible")
-            indicador = '<div style="position:absolute;bottom:-2px;right:-2px;width:14px;height:14px;border-radius:50%;background:#22c55e;border:2px solid white;font-size:8px;display:flex;align-items:center;justify-content:center;">✓</div>' if estado == "disponible" else '<div style="position:absolute;bottom:-2px;right:-2px;width:14px;height:14px;border-radius:50%;background:#ef4444;border:2px solid white;font-size:8px;display:flex;align-items:center;justify-content:center;">✕</div>'
+            indicador = '<div style="position:absolute;bottom:-1px;right:-1px;width:13px;height:13px;border-radius:50%;background:#22c55e;border:2px solid white;"></div>' if estado == "disponible" else '<div style="position:absolute;bottom:-1px;right:-1px;width:13px;height:13px;border-radius:50%;background:#ef4444;border:2px solid white;display:flex;align-items:center;justify-content:center;font-size:7px;color:white;">✕</div>'
             if foto:
-                img_html = f'<div style="position:relative;display:inline-block;"><img src="{foto}" style="width:40px;height:40px;border-radius:50%;border:2px solid white;object-fit:cover;object-position:top;">{indicador}</div>'
+                img_html = f'<div style="position:relative;display:inline-block;"><img src="{foto}" style="width:44px;height:44px;border-radius:50%;border:2.5px solid white;object-fit:cover;object-position:top;box-shadow:0 2px 6px rgba(0,0,0,0.4);">{indicador}</div>'
             else:
-                img_html = f'<div style="position:relative;display:inline-block;"><div style="width:40px;height:40px;border-radius:50%;background:#1D9E75;border:2px solid white;display:flex;align-items:center;justify-content:center;font-weight:500;font-size:12px;color:white;">{iniciales}</div>{indicador}</div>'
-            html += f"""
-            <div class="player">
+                img_html = f'<div style="position:relative;display:inline-block;"><div style="width:44px;height:44px;border-radius:50%;background:#1D9E75;border:2.5px solid white;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:13px;color:white;box-shadow:0 2px 6px rgba(0,0,0,0.4);">{iniciales}</div>{indicador}</div>'
+            html += f"""<div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
                 {img_html}
-                <span>{nombre}</span>
+                <div style="color:white;font-size:10px;font-weight:600;text-shadow:1px 1px 3px rgba(0,0,0,0.9);max-width:56px;text-align:center;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">{nombre}</div>
+                <div style="background:rgba(0,0,0,0.45);color:rgba(255,255,255,0.85);font-size:8px;padding:1px 5px;border-radius:4px;font-weight:500;">{pos_label}</div>
             </div>"""
         return html
 
+    pos_labels = {"F": "DEL", "M": "MED", "D": "DEF", "G": "POR"}
+
+    # Franjas de césped
+    franjas = "".join([
+        f'<div style="position:absolute;top:{i*10}%;left:0;right:0;height:10%;background:rgba(0,0,0,{0.04 if i%2==0 else 0});"></div>'
+        for i in range(10)
+    ])
+
     campo_html = f"""
-    <div style="font-family:sans-serif;width:100%;max-width:500px;margin:0 auto;">
-        <div style="background:#2d5a27;border-radius:12px;padding:16px;position:relative;min-height:520px;">
-            <div style="border:2px solid rgba(255,255,255,0.3);border-radius:8px;height:490px;position:relative;overflow:hidden;">
-                <div style="position:absolute;top:50%;left:0;right:0;border-top:1px solid rgba(255,255,255,0.2);"></div>
-                <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:80px;height:80px;border:1px solid rgba(255,255,255,0.2);border-radius:50%;"></div>
+    <div style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;width:100%;max-width:480px;margin:0 auto;">
+        <div style="position:relative;border-radius:14px;overflow:hidden;border:3px solid #155228;">
+            <div style="background:linear-gradient(180deg,#1a6b35 0%,#1d7a3d 10%,#1a6b35 20%,#1d7a3d 30%,#1a6b35 40%,#1d7a3d 50%,#1a6b35 60%,#1d7a3d 70%,#1a6b35 80%,#1d7a3d 90%,#1a6b35 100%);height:580px;position:relative;">
 
-                <style>
-                .fila{{display:flex;justify-content:space-around;align-items:center;padding:8px 4px;}}
-                .player{{display:flex;flex-direction:column;align-items:center;gap:3px;}}
-                .player span{{color:white;font-size:11px;font-weight:500;text-shadow:1px 1px 2px rgba(0,0,0,0.8);max-width:60px;text-align:center;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}}
-                </style>
+                <!-- Líneas del campo -->
+                <div style="position:absolute;top:0;left:0;right:0;bottom:0;border:2px solid rgba(255,255,255,0.25);margin:10px;border-radius:4px;"></div>
+                <div style="position:absolute;top:50%;left:10px;right:10px;height:1px;background:rgba(255,255,255,0.25);"></div>
+                <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:70px;height:70px;border:1px solid rgba(255,255,255,0.25);border-radius:50%;"></div>
+                <div style="position:absolute;top:10px;left:25%;right:25%;height:16%;border:1px solid rgba(255,255,255,0.2);border-top:none;border-radius:0 0 4px 4px;"></div>
+                <div style="position:absolute;bottom:10px;left:25%;right:25%;height:16%;border:1px solid rgba(255,255,255,0.2);border-bottom:none;border-radius:4px 4px 0 0;"></div>
 
-                <div style="position:absolute;top:8px;left:0;right:0;">
-                    <div class="fila">{jugadores_html(pos_data.get("F", []), estados)}</div>
+                <!-- Badge formación -->
+                <div style="position:absolute;top:14px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.5);color:white;font-size:12px;padding:3px 12px;border-radius:12px;font-weight:600;z-index:10;">{formacion}</div>
+
+                <!-- Delanteros -->
+                <div style="position:absolute;top:7%;left:0;right:0;display:flex;justify-content:space-around;align-items:center;padding:0 8px;">
+                    {jugadores_html(pos_data.get("F", []), estados, pos_labels["F"])}
                 </div>
-                <div style="position:absolute;top:calc(8px + 130px);left:0;right:0;">
-                    <div class="fila">{jugadores_html(pos_data.get("M", []), estados)}</div>
+
+                <!-- Centrocampistas -->
+                <div style="position:absolute;top:32%;left:0;right:0;display:flex;justify-content:space-around;align-items:center;padding:0 8px;">
+                    {jugadores_html(pos_data.get("M", []), estados, pos_labels["M"])}
                 </div>
-                <div style="position:absolute;top:calc(8px + 260px);left:0;right:0;">
-                    <div class="fila">{jugadores_html(pos_data.get("D", []), estados)}</div>
+
+                <!-- Defensas -->
+                <div style="position:absolute;top:57%;left:0;right:0;display:flex;justify-content:space-around;align-items:center;padding:0 8px;">
+                    {jugadores_html(pos_data.get("D", []), estados, pos_labels["D"])}
                 </div>
-                <div style="position:absolute;bottom:8px;left:0;right:0;">
-                    <div class="fila">{jugadores_html(pos_data.get("G", []), estados)}</div>
+
+                <!-- Portero -->
+                <div style="position:absolute;top:80%;left:0;right:0;display:flex;justify-content:space-around;align-items:center;padding:0 8px;">
+                    {jugadores_html(pos_data.get("G", []), estados, pos_labels["G"])}
                 </div>
             </div>
         </div>
-        <div style="text-align:center;margin-top:8px;font-size:13px;color:#666;">{formacion}</div>
+        <!-- Leyenda -->
+        <div style="display:flex;justify-content:center;gap:16px;margin-top:10px;">
+            <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#666;">
+                <div style="width:10px;height:10px;border-radius:50%;background:#22c55e;"></div>
+                <span>Disponible</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#666;">
+                <div style="width:10px;height:10px;border-radius:50%;background:#ef4444;"></div>
+                <span>Lesionado</span>
+            </div>
+        </div>
     </div>
     """
-    components.html(campo_html, height=560)
+    components.html(campo_html, height=640)
 
 
 def pagina_alineacion(equipo_id: int, jornada: int):
