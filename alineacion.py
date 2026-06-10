@@ -140,9 +140,9 @@ def pagina_alineacion(equipo_id: int, jornada: int):
             st.error(f"🔒 Deadline superado — la alineación está bloqueada para la jornada {jornada}")
         else:
             ahora = datetime.now(timezone.utc)
-        if deadline.tzinfo is None:
-            deadline = deadline.replace(tzinfo=timezone.utc)
-        tiempo_restante = deadline - ahora
+            if deadline.tzinfo is None:
+                deadline = deadline.replace(tzinfo=timezone.utc)
+            tiempo_restante = deadline - ahora
             horas = int(tiempo_restante.total_seconds() // 3600)
             minutos = int((tiempo_restante.total_seconds() % 3600) // 60)
             st.info(f"⏰ Tiempo para guardar la alineación: **{horas}h {minutos}min**")
