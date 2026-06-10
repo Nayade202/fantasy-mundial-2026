@@ -11,6 +11,9 @@ from datetime import datetime
 from typing import Optional
 import urllib.request
 import urllib.error
+from dotenv import load_dotenv
+
+load_dotenv()  # Carga las variables del archivo .env
 
 # ──────────────────────────────────────────
 #  CONFIGURACIÓN
@@ -80,7 +83,7 @@ def obtener_partidos_jornada(jornada: int) -> list[dict]:
     data = _api_get("fixtures", {
         "league": LEAGUE_ID,
         "season": SEASON,
-        "round": f"Group Stage - {jornada}"
+        "round": f"Group%20Stage%20-%20{jornada}"
     })
     partidos = data.get("response", [])
     print(f"📅 Jornada {jornada}: {len(partidos)} partidos encontrados")
