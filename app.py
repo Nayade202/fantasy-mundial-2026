@@ -17,6 +17,7 @@ from database import (
 )
 from fantasy import actualizar_puntos_jornada, _api_get, LEAGUE_ID, SEASON
 from alineacion import pagina_alineacion
+from historial import pagina_historial
 
 st.set_page_config(
     page_title="Fantasy Mundial 2026",
@@ -143,6 +144,7 @@ pagina = st.sidebar.radio("", [
     "🏅 Clasificación",
     "👤 Mi equipo",
     "⚽ Mi alineación",
+    "📊 Historial",
     "➕ Crear usuario/equipo",
     "🔍 Buscar jugadores",
     "🔄 Actualizar puntos",
@@ -330,6 +332,10 @@ elif pagina == "⚽ Mi alineación":
             with col3:
                 jornada = st.number_input("Jornada", min_value=1, max_value=7, value=1, key="alin_jornada")
             pagina_alineacion(equipo_id, int(jornada))
+
+# ── HISTORIAL ─────────────────────────────
+elif pagina == "📊 Historial":
+    pagina_historial()
 
 # ── CREAR USUARIO / EQUIPO ────────────────
 elif pagina == "➕ Crear usuario/equipo":
