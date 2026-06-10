@@ -67,12 +67,12 @@ def añadir_jugador(equipo_id: int, jugador_id: int, nombre: str, posicion: str,
 
 def get_jugadores_equipo(equipo_id: int):
     db = get_db()
-    res = db.table("jugadores_equipo").select("jugador_id, nombre, posicion, precio, es_capitan").eq("equipo_id", equipo_id).execute()
+    res = db.table("jugadores_equipo").select("jugador_id, nombre, posicion, precio, es_capitan, foto_url").eq("equipo_id", equipo_id).execute()
     jugadores = []
     for j in res.data:
         pts_res = db.table("puntos_historico").select("puntos").eq("equipo_id", equipo_id).eq("jugador_id", j["jugador_id"]).execute()
         total_pts = sum(p["puntos"] for p in pts_res.data) if pts_res.data else 0
-        jugadores.append((j["jugador_id"], j["nombre"], j["posicion"], j["precio"], j["es_capitan"], total_pts))
+        jugadores.append((j["jugador_id"], j["nombre"], j["posicion"], j["precio"], j["es_capitan"], total_pts, j.get("foto_url","")))
     pos_order = {"G": 1, "D": 2, "M": 3, "F": 4}
     jugadores.sort(key=lambda x: pos_order.get(x[2], 5))
     return jugadores

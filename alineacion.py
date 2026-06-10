@@ -82,14 +82,16 @@ def render_campo(titulares_por_pos: dict, formacion: str):
     def jugadores_html(jugs):
         html = ""
         for j in jugs:
-            nombre = j["nombre"].split()[-1]  # Solo apellido
-            jid = j["jugador_id"]
+            nombre = j["nombre"].split()[-1]
+            foto = j.get("foto_url", "")
+            iniciales = nombre[:2].upper()
+            if foto:
+                img_html = f'<img src="{foto}" style="width:40px;height:40px;border-radius:50%;border:2px solid white;object-fit:cover;object-position:top;">'
+            else:
+                img_html = f'<div style="width:40px;height:40px;border-radius:50%;background:#1D9E75;border:2px solid white;display:flex;align-items:center;justify-content:center;font-weight:500;font-size:12px;color:white;">{iniciales}</div>'
             html += f"""
             <div class="player">
-                <img src="https://media.api-sports.io/football/players/{jid}.png"
-                     onerror="this.style.display='none';this.nextSibling.style.display='flex'"
-                     style="width:40px;height:40px;border-radius:50%;border:2px solid white;object-fit:cover;">
-                <div class="avatar" style="display:none;width:40px;height:40px;border-radius:50%;background:#1D9E75;border:2px solid white;align-items:center;justify-content:center;font-weight:500;font-size:12px;color:white;">{nombre[:2].upper()}</div>
+                {img_html}
                 <span>{nombre}</span>
             </div>"""
         return html
@@ -232,10 +234,12 @@ def pagina_alineacion(equipo_id: int, jornada: int):
         if sel_g:
             jug = next((j for j in porteros if j[1] == sel_g), None)
             if jug:
-                titulares_por_pos["G"] = [{"nombre": jug[1], "jugador_id": jug[0]}]
-        titulares_por_pos["D"] = [{"nombre": n, "jugador_id": opts_d[n]} for n in sel_d]
-        titulares_por_pos["M"] = [{"nombre": n, "jugador_id": opts_m[n]} for n in sel_m]
-        titulares_por_pos["F"] = [{"nombre": n, "jugador_id": opts_f[n]} for n in sel_f]
+                titulares_por_pos["G"] = [{"nombre": jug[1], "jugador_id": jug[0], "foto_url": jug[6] if len(jug) > 6 else ""}]
+        # Build lookup with foto_url
+        foto_dict = {j[1]: (j[0], j[6] if len(j) > 6 else "") for j in todos}
+        titulares_por_pos["D"] = [{"nombre": n, "jugador_id": foto_dict[n][0], "foto_url": foto_dict[n][1]} for n in sel_d]
+        titulares_por_pos["M"] = [{"nombre": n, "jugador_id": foto_dict[n][0], "foto_url": foto_dict[n][1]} for n in sel_m]
+        titulares_por_pos["F"] = [{"nombre": n, "jugador_id": foto_dict[n][0], "foto_url": foto_dict[n][1]} for n in sel_f]
 
         if total_titulares >= 5:
             render_campo(titulares_por_pos, formacion)

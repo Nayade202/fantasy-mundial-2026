@@ -118,13 +118,15 @@ elif pagina == "👤 Mi equipo":
             else:
                 pos_icons = {"G": "🧤", "D": "🛡️", "M": "⚙️", "F": "⚡"}
                 total = 0
-                for jug_id, nombre, pos, precio, capitan, pts in jugadores:
+                for jug_id, nombre, pos, precio, capitan, pts, foto_url in jugadores:
                     cap = " 👑" if capitan else ""
                     icon = pos_icons.get(pos, "⚽")
                     col1, col2, col3, col4, col5 = st.columns([1, 4, 2, 2, 2])
                     with col1:
-                        foto_url = f"https://media.api-sports.io/football/players/{jug_id}.png"
-                        st.markdown(f'''<img src="{foto_url}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;" onerror="this.src=''">'''  , unsafe_allow_html=True)
+                        if foto_url:
+                            st.markdown(f'''<img src="{foto_url}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">'''  , unsafe_allow_html=True)
+                        else:
+                            st.write(icon)
                     with col2:
                         st.write(f"**{nombre}**{cap}")
                         st.caption(f"{icon} {pos} · ${precio}M")
