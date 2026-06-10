@@ -19,6 +19,15 @@ FORMACIONES = {
     "4-5-1": {"D": 4, "M": 5, "F": 1},
 }
 
+def get_estados_jugadores() -> dict:
+    """Devuelve dict {jugador_id: estado} desde Supabase. Si falla, todos disponibles."""
+    try:
+        db = get_db()
+        res = db.table("estado_jugadores").select("jugador_id, estado").execute()
+        return {r["jugador_id"]: r["estado"] for r in (res.data or [])}
+    except Exception:
+        return {}
+
 def get_deadline(jornada: int):
     db = get_db()
     res = db.table("jornadas_info").select("deadline").eq("jornada", jornada).execute()
