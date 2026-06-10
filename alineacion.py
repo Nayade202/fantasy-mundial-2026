@@ -155,92 +155,133 @@ def pagina_alineacion(equipo_id: int, jornada: int):
     defensas = [j for j in todos if j[2] == "D"]
     medios   = [j for j in todos if j[2] == "M"]
     delanteros = [j for j in todos if j[2] == "F"]
+    foto_dict = {j[1]: (j[0], j[6] if len(j) > 6 else "") for j in todos}
+    id_a_nombre = {j[0]: j[1] for j in todos}
 
-    # Selector de formación
+    # Cargar alineación guardada
+    alineacion_guardada = get_alineacion(equipo_id, jornada)
+    titulares_guardados = [a["jugador_id"] for a in alineacion_guardada if a["es_titular"]]
+    suplentes_guardados = sorted([a for a in alineacion_guardada if not a["es_titular"]], key=lambda x: x.get("orden_suplente") or 99)
+
+    # Mostrar alineación guardada si existe
+    if titulares_guardados:
+        # Detectar formación guardada
+        n_d = sum(1 for jid in titulares_guardados if any(j[0]==jid and j[2]=="D" for j in todos))
+        n_m = sum(1 for jid in titulares_guardados if any(j[0]==jid and j[2]=="M" for j in todos))
+        n_f = sum(1 for jid in titulares_guardados if any(j[0]==jid and j[2]=="F" for j in todos))
+        formacion_guardada = f"{n_d}-{n_m}-{n_f}"
+
+        col_campo, col_info = st.columns([1, 1])
+        with col_campo:
+            st.markdown("### 🟢 Alineación guardada")
+            titulares_por_pos = {"G": [], "D": [], "M": [], "F": []}
+            for jid in titulares_guardados:
+                nombre = id_a_nombre.get(jid, "?")
+                pos = next((j[2] for j in todos if j[0]==jid), "M")
+                foto = next((j[6] if len(j)>6 else "" for j in todos if j[0]==jid), "")
+                titulares_por_pos[pos].append({"nombre": nombre, "jugador_id": jid, "foto_url": foto})
+            render_campo(titulares_por_pos, formacion_guardada)
+
+        with col_info:
+            st.markdown("### Titulares")
+            pos_icons = {"G": "🧤", "D": "🛡️", "M": "⚙️", "F": "⚡"}
+            for pos in ["G", "D", "M", "F"]:
+                for jug in titulares_por_pos[pos]:
+                    foto = jug["foto_url"]
+                    if foto:
+                        st.markdown(f'<div style="display:flex;align-items:center;gap:8px;margin:4px 0;"><img src="{foto}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;object-position:top;"><span>{pos_icons[pos]} {jug["nombre"]}</span></div>', unsafe_allow_html=True)
+                    else:
+                        st.write(f"{pos_icons[pos]} {jug['nombre']}")
+
+            if suplentes_guardados:
+                st.markdown("### Suplentes")
+                for i, sup in enumerate(suplentes_guardados, 1):
+                    nombre = id_a_nombre.get(sup["jugador_id"], "?")
+                    foto = next((j[6] if len(j)>6 else "" for j in todos if j[0]==sup["jugador_id"]), "")
+                    if foto:
+                        st.markdown(f'<div style="display:flex;align-items:center;gap:8px;margin:4px 0;"><img src="{foto}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;object-position:top;"><span>🔄 {i}º {nombre}</span></div>', unsafe_allow_html=True)
+                    else:
+                        st.write(f"🔄 {i}º {nombre}")
+
+        if not bloqueado:
+            st.divider()
+            if not st.session_state.get(f"editar_{equipo_id}_{jornada}", False):
+                if st.button("✏️ Editar alineación"):
+                    st.session_state[f"editar_{equipo_id}_{jornada}"] = True
+                    st.rerun()
+            else:
+                mostrar_editor(equipo_id, jornada, todos, porteros, defensas, medios, delanteros, foto_dict, bloqueado)
+    else:
+        st.info("Aún no has guardado alineación para esta jornada.")
+        if not bloqueado:
+            mostrar_editor(equipo_id, jornada, todos, porteros, defensas, medios, delanteros, foto_dict, bloqueado)
+
+
+def mostrar_editor(equipo_id, jornada, todos, porteros, defensas, medios, delanteros, foto_dict, bloqueado):
+    """Editor de alineación."""
+    st.markdown("### ✏️ Editar alineación")
+
     col1, col2 = st.columns([2, 1])
     with col1:
-        formacion = st.selectbox("Formación", list(FORMACIONES.keys()), disabled=bloqueado)
+        formacion = st.selectbox("Formación", list(FORMACIONES.keys()), disabled=bloqueado, key=f"form_{equipo_id}")
     config = FORMACIONES[formacion]
 
     st.divider()
     col_campo, col_seleccion = st.columns([1, 1])
 
     with col_seleccion:
-        st.markdown("### Selecciona titulares")
-
-        # Portero
-        st.markdown("**🧤 Portero (1)**")
         opts_g = {j[1]: j[0] for j in porteros}
-        sel_g = st.selectbox("Portero", list(opts_g.keys()), disabled=bloqueado, key="sel_g")
+        sel_g = st.selectbox("🧤 Portero", list(opts_g.keys()), disabled=bloqueado, key=f"sel_g_{equipo_id}")
 
-        # Defensas
         n_d = config["D"]
-        st.markdown(f"**🛡️ Defensas ({n_d})**")
         opts_d = {j[1]: j[0] for j in defensas}
-        sel_d = st.multiselect(f"Elige {n_d} defensas", list(opts_d.keys()),
-                               max_selections=n_d, disabled=bloqueado, key="sel_d")
+        sel_d = st.multiselect(f"🛡️ Defensas ({n_d})", list(opts_d.keys()), max_selections=n_d, disabled=bloqueado, key=f"sel_d_{equipo_id}")
 
-        # Medios
         n_m = config["M"]
-        st.markdown(f"**⚙️ Centrocampistas ({n_m})**")
         opts_m = {j[1]: j[0] for j in medios}
-        sel_m = st.multiselect(f"Elige {n_m} centrocampistas", list(opts_m.keys()),
-                               max_selections=n_m, disabled=bloqueado, key="sel_m")
+        sel_m = st.multiselect(f"⚙️ Centrocampistas ({n_m})", list(opts_m.keys()), max_selections=n_m, disabled=bloqueado, key=f"sel_m_{equipo_id}")
 
-        # Delanteros
         n_f = config["F"]
-        st.markdown(f"**⚡ Delanteros ({n_f})**")
         opts_f = {j[1]: j[0] for j in delanteros}
-        sel_f = st.multiselect(f"Elige {n_f} delanteros", list(opts_f.keys()),
-                               max_selections=n_f, disabled=bloqueado, key="sel_f")
+        sel_f = st.multiselect(f"⚡ Delanteros ({n_f})", list(opts_f.keys()), max_selections=n_f, disabled=bloqueado, key=f"sel_f_{equipo_id}")
 
         st.divider()
-        st.markdown("**🔄 Suplentes (máx. 3)**")
         ya_seleccionados = set([sel_g] + sel_d + sel_m + sel_f)
         disponibles_sup = [j[1] for j in todos if j[1] not in ya_seleccionados]
-        sel_suplentes = st.multiselect("Suplentes (por orden)", disponibles_sup,
-                                       max_selections=3, disabled=bloqueado, key="sel_sup")
+        sel_suplentes = st.multiselect("🔄 Suplentes (por orden, máx. 3)", disponibles_sup, max_selections=3, disabled=bloqueado, key=f"sel_sup_{equipo_id}")
 
-        # Validar y guardar
         total_titulares = 1 + len(sel_d) + len(sel_m) + len(sel_f)
-        valido = (
-            len(sel_d) == n_d and
-            len(sel_m) == n_m and
-            len(sel_f) == n_f
-        )
+        valido = len(sel_d) == n_d and len(sel_m) == n_m and len(sel_f) == n_f
 
         if not bloqueado:
-            if st.button("💾 Guardar alineación", type="primary", disabled=not valido):
-                titulares_ids = (
-                    [opts_g[sel_g]] +
-                    [opts_d[n] for n in sel_d] +
-                    [opts_m[n] for n in sel_m] +
-                    [opts_f[n] for n in sel_f]
-                )
-                # Suplentes: buscar IDs
-                todos_dict = {j[1]: j[0] for j in todos}
-                suplentes_ids = [todos_dict[n] for n in sel_suplentes]
-                guardar_alineacion(equipo_id, jornada, titulares_ids, suplentes_ids)
-                st.success(f"✅ Alineación {formacion} guardada para jornada {jornada}")
-                st.rerun()
+            col_a, col_b = st.columns(2)
+            with col_a:
+                if st.button("💾 Guardar", type="primary", disabled=not valido, key=f"guardar_{equipo_id}"):
+                    titulares_ids = [opts_g[sel_g]] + [opts_d[n] for n in sel_d] + [opts_m[n] for n in sel_m] + [opts_f[n] for n in sel_f]
+                    todos_dict = {j[1]: j[0] for j in todos}
+                    suplentes_ids = [todos_dict[n] for n in sel_suplentes]
+                    guardar_alineacion(equipo_id, jornada, titulares_ids, suplentes_ids)
+                    st.session_state[f"editar_{equipo_id}_{jornada}"] = False
+                    st.success(f"✅ Alineación {formacion} guardada")
+                    st.rerun()
+            with col_b:
+                if st.button("❌ Cancelar", key=f"cancelar_{equipo_id}"):
+                    st.session_state[f"editar_{equipo_id}_{jornada}"] = False
+                    st.rerun()
 
             if not valido:
                 st.warning(f"Necesitas: 1 portero, {n_d} defensas, {n_m} centros, {n_f} delanteros")
 
     with col_campo:
-        st.markdown("### Vista del campo")
-        # Construir datos para el campo
+        st.markdown("### Vista previa")
         titulares_por_pos = {}
         if sel_g:
             jug = next((j for j in porteros if j[1] == sel_g), None)
             if jug:
                 titulares_por_pos["G"] = [{"nombre": jug[1], "jugador_id": jug[0], "foto_url": jug[6] if len(jug) > 6 else ""}]
-        # Build lookup with foto_url
-        foto_dict = {j[1]: (j[0], j[6] if len(j) > 6 else "") for j in todos}
         titulares_por_pos["D"] = [{"nombre": n, "jugador_id": foto_dict[n][0], "foto_url": foto_dict[n][1]} for n in sel_d]
         titulares_por_pos["M"] = [{"nombre": n, "jugador_id": foto_dict[n][0], "foto_url": foto_dict[n][1]} for n in sel_m]
         titulares_por_pos["F"] = [{"nombre": n, "jugador_id": foto_dict[n][0], "foto_url": foto_dict[n][1]} for n in sel_f]
-
         if total_titulares >= 5:
             render_campo(titulares_por_pos, formacion)
         else:
