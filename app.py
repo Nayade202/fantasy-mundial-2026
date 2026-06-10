@@ -16,6 +16,7 @@ from database import (
     get_clasificacion, get_puntos_jornada
 )
 from fantasy import actualizar_puntos_jornada, _api_get, LEAGUE_ID, SEASON
+from alineacion import pagina_alineacion
 
 # ──────────────────────────────────────────
 #  CONFIGURACIÓN DE PÁGINA
@@ -43,6 +44,7 @@ st.sidebar.markdown("---")
 pagina = st.sidebar.radio("Navegar", [
     "🏅 Clasificación",
     "👤 Mi equipo",
+    "⚽ Mi alineación",
     "➕ Crear usuario/equipo",
     "🔍 Buscar jugadores",
     "🔄 Actualizar puntos",
@@ -117,25 +119,25 @@ elif pagina == "👤 Mi equipo":
                 pos_icons = {"G": "🧤", "D": "🛡️", "M": "⚙️", "F": "⚡"}
                 total = 0
                 for jug_id, nombre, pos, precio, capitan, pts in jugadores:
-                    cap = " 👑 CAPITÁN" if capitan else ""
+                    cap = " 👑" if capitan else ""
                     icon = pos_icons.get(pos, "⚽")
                     col1, col2, col3, col4, col5 = st.columns([1, 4, 2, 2, 2])
                     with col1:
-                        st.write(icon)
+                        foto_url = f"https://media.api-sports.io/football/players/{jug_id}.png"
+                        st.markdown(f'''<img src="{foto_url}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;" onerror="this.src=''">'''  , unsafe_allow_html=True)
                     with col2:
                         st.write(f"**{nombre}**{cap}")
+                        st.caption(f"{icon} {pos} · ${precio}M")
                     with col3:
-                        st.write(f"${precio}M")
+                        st.metric("", f"{pts:.0f} pts")
                     with col4:
-                        st.write(f"**{pts:.0f} pts**")
-                    with col5:
                         if not capitan:
-                            if st.button("👑 Hacer capitán", key=f"cap_btn_{jug_id}"):
+                            if st.button("👑 Capitán", key=f"cap_btn_{jug_id}"):
                                 cambiar_capitan(equipo_id, jug_id)
                                 st.success(f"👑 {nombre} es el nuevo capitán")
                                 st.rerun()
                         else:
-                            st.write("👑 Capitán")
+                            st.success("👑 Capitán")
                     total += pts
 
                 st.divider()
@@ -147,6 +149,27 @@ elif pagina == "👤 Mi equipo":
                     import pandas as pd
                     df = pd.DataFrame(historial, columns=["Jornada", "Puntos"])
                     st.line_chart(df.set_index("Jornada"))
+
+# ──────────────────────────────────────────
+#  MI ALINEACIÓN
+# ──────────────────────────────────────────
+elif pagina == "⚽ Mi alineación":
+    usuarios = get_usuarios()
+    if not usuarios:
+        st.warning("No hay usuarios creados.")
+    else:
+        nombres = [u[1] for u in usuarios]
+        sel = st.selectbox("Selecciona tu usuario", nombres, key="alin_user")
+        uid = next(u[0] for u in usuarios if u[1] == sel)
+        equipos = get_equipos(uid)
+        if not equipos:
+            st.warning("Este usuario no tiene equipo.")
+        else:
+            eq_nombres = [e[1] for e in equipos]
+            eq_sel = st.selectbox("Selecciona equipo", eq_nombres, key="alin_eq")
+            equipo_id = next(e[0] for e in equipos if e[1] == eq_sel)
+            jornada = st.number_input("Jornada", min_value=1, max_value=7, value=1, key="alin_jornada")
+            pagina_alineacion(equipo_id, int(jornada))
 
 # ──────────────────────────────────────────
 #  CREAR USUARIO / EQUIPO
