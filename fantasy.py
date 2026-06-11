@@ -379,12 +379,41 @@ def actualizar_puntos_jornada(jornada: int):
     from database import get_equipos, get_jugadores_equipo, guardar_puntos, get_db
 
     # Obtener alineaciones guardadas para esta jornada
+    # Usa la última alineación guardada ANTES del deadline del día del partido
     db = get_db()
-    alin_res = db.table("alineaciones").select("*").eq("jornada", jornada).execute()
-    alineaciones = alin_res.data or []
 
-    # Si no hay alineaciones guardadas, usar todos los jugadores como antes
-    hay_alineaciones = len(alineaciones) > 0
+    # Obtener la fecha de cada partido para saber qué alineación usar
+    alineaciones_por_equipo = {}
+    for partido in partidos:
+        fixture_date = partido.get("fixture", {}).get("date", "")[:10]  # YYYY-MM-DD
+        # Deadline de ese día (16:00 UTC = 18:00h española)
+        deadline_dia = None
+        if fixture_date:
+            dd_res = db.table("deadlines_diarios").select("deadline").eq("fecha", fixture_date).execute()
+            if dd_res.data:
+                raw = dd_res.data[0]["deadline"]
+                if isinstance(raw, str):
+                    raw = raw.replace("Z", "+00:00")
+                    import datetime as dt
+                    deadline_dia = dt.datetime.fromisoformat(raw)
+
+        # Obtener alineaciones guardadas ANTES del deadline de ese día
+        if deadline_dia:
+            alin_res = db.table("alineaciones").select("*").eq("jornada", jornada).lte("guardado", deadline_dia.isoformat()).execute()
+        else:
+            alin_res = db.table("alineaciones").select("*").eq("jornada", jornada).execute()
+
+        for a in (alin_res.data or []):
+            eid = a["equipo_id"]
+            if eid not in alineaciones_por_equipo:
+                alineaciones_por_equipo[eid] = {"titulares": set(), "suplentes": []}
+            if a["es_titular"]:
+                alineaciones_por_equipo[eid]["titulares"].add(a["jugador_id"])
+            else:
+                alineaciones_por_equipo[eid]["suplentes"].append((a.get("orden_suplente", 99), a["jugador_id"]))
+
+    alineaciones = [a for adict in alineaciones_por_equipo.values() for a in [adict]]
+    hay_alineaciones = len(alineaciones_por_equipo) > 0
 
     if hay_alineaciones:
         print(f"  📋 Usando alineaciones guardadas para jornada {jornada}")

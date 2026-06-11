@@ -19,6 +19,49 @@ FORMACIONES = {
     "4-5-1": {"D": 4, "M": 5, "F": 1},
 }
 
+def get_deadline_hoy() -> dict:
+    """Devuelve el deadline de hoy si hay partidos."""
+    from datetime import date
+    hoy = date.today().isoformat()
+    try:
+        db = get_db()
+        res = db.table("deadlines_diarios").select("*").eq("fecha", hoy).execute()
+        if res.data:
+            raw = res.data[0]["deadline"]
+            if isinstance(raw, str):
+                raw = raw.replace("Z", "+00:00")
+                return {"deadline": datetime.fromisoformat(raw), "descripcion": res.data[0].get("descripcion", "")}
+    except Exception:
+        pass
+    return None
+
+def get_deadline_dia(fecha_str: str):
+    """Devuelve el deadline de un día específico."""
+    try:
+        db = get_db()
+        res = db.table("deadlines_diarios").select("*").eq("fecha", fecha_str).execute()
+        if res.data:
+            raw = res.data[0]["deadline"]
+            if isinstance(raw, str):
+                raw = raw.replace("Z", "+00:00")
+                dl = datetime.fromisoformat(raw)
+                if dl.tzinfo is None:
+                    dl = dl.replace(tzinfo=timezone.utc)
+                return dl
+    except Exception:
+        pass
+    return None
+
+def is_deadline_hoy_pasado() -> bool:
+    """Comprueba si ya pasó el deadline de hoy."""
+    info = get_deadline_hoy()
+    if not info:
+        return False
+    deadline = info["deadline"]
+    if deadline.tzinfo is None:
+        deadline = deadline.replace(tzinfo=timezone.utc)
+    return datetime.now(timezone.utc) > deadline
+
 def get_estados_jugadores() -> dict:
     """Devuelve dict {jugador_id: estado} desde Supabase. Si falla, todos disponibles."""
     try:
@@ -173,21 +216,24 @@ def pagina_alineacion(equipo_id: int, jornada: int):
     """Página principal de gestión de alineación."""
     st.markdown("## ⚽ Mi alineación")
 
-    # Verificar deadline
-    deadline = get_deadline(jornada)
-    bloqueado = is_deadline_passed(jornada)
+    # Verificar deadline diario (18:00h hora española = 16:00 UTC)
+    bloqueado = is_deadline_hoy_pasado()
+    info_deadline = get_deadline_hoy()
 
-    if deadline:
-        if bloqueado:
-            st.error(f"🔒 Deadline superado — la alineación está bloqueada para la jornada {jornada}")
-        else:
-            ahora = datetime.now(timezone.utc)
-            if deadline.tzinfo is None:
-                deadline = deadline.replace(tzinfo=timezone.utc)
-            tiempo_restante = deadline - ahora
-            horas = int(tiempo_restante.total_seconds() // 3600)
-            minutos = int((tiempo_restante.total_seconds() % 3600) // 60)
-            st.info(f"⏰ Tiempo para guardar la alineación: **{horas}h {minutos}min**")
+    if bloqueado:
+        st.error("🔒 Deadline de hoy superado (18:00h). Puedes cambiar la alineación mañana antes de las 18:00h.")
+    elif info_deadline:
+        deadline = info_deadline["deadline"]
+        if deadline.tzinfo is None:
+            deadline = deadline.replace(tzinfo=timezone.utc)
+        ahora = datetime.now(timezone.utc)
+        tiempo_restante = deadline - ahora
+        horas = int(tiempo_restante.total_seconds() // 3600)
+        minutos = int((tiempo_restante.total_seconds() % 3600) // 60)
+        st.info(f"⏰ Hoy puedes cambiar tu alineación hasta las **18:00h**. Tiempo restante: **{horas}h {minutos}min**")
+    else:
+        st.info("ℹ️ Hoy no hay partidos. Puedes cambiar tu alineación libremente.")
+        bloqueado = False
 
     # Obtener jugadores del equipo
     todos = get_jugadores_equipo(equipo_id)

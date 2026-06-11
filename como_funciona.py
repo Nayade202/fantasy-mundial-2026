@@ -40,9 +40,11 @@ def pagina_como_funciona():
     with col2:
         st.markdown("""
         <div style="background:white;border:0.5px solid #e8e8e8;border-radius:12px;padding:14px;">
-            <p style="font-weight:600;color:#dc2626;margin:0 0 10px;">⏰ Deadline importante</p>
+            <p style="font-weight:600;color:#dc2626;margin:0 0 10px;">⏰ Deadline diario</p>
             <ul style="margin:0;padding-left:18px;font-size:13px;color:#444;line-height:1.8;">
-                <li>La alineación se <strong>bloquea 15 minutos</strong> antes del primer partido de cada jornada</li>
+                <li>Cada día que hay partidos el deadline es a las <strong>18:00h hora española</strong></li>
+                <li>Puedes cambiar tu alineación <strong>cada día</strong> antes de esa hora</li>
+                <li>Se usa la última alineación guardada antes de las 18:00h de ese día</li>
                 <li>Si no guardas alineación → <strong>no puntúas</strong></li>
                 <li>Los suplentes entran si un titular <strong>no juega ni un minuto</strong></li>
             </ul>
