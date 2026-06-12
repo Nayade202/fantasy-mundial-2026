@@ -22,20 +22,18 @@ def get_todos_jugadores():
                 jugadores[pos].append(j)
     return jugadores
 
-def draft_aleatorio(liga_id: int, participantes: list[str]) -> dict:
+def draft_aleatorio(liga_id: int, participantes: list) -> dict:
     """
-    Reparte los 75 jugadores aleatoriamente entre los participantes.
+    Reparte jugadores aleatoriamente entre los participantes.
     
-    Distribución:
-    - 2 porteros por equipo (6 total)
-    - Defensas: 9-8-8 (25 total)
-    - 8 medios por equipo (24 total)  
-    - Delanteros: 7-7-6 (20 total)
+    2 equipos: 25 jugadores cada uno (2P, 8D, 8M, 7F), 25 quedan sin asignar
+    3 equipos: 25 jugadores cada uno con distribución ajustada
     
     Devuelve dict con los equipos creados.
     """
-    if len(participantes) != 3:
-        raise ValueError("Se necesitan exactamente 3 participantes")
+    n = len(participantes)
+    if n not in [2, 3]:
+        raise ValueError("Se necesitan 2 o 3 participantes")
     
     jugadores = get_todos_jugadores()
     
@@ -43,17 +41,24 @@ def draft_aleatorio(liga_id: int, participantes: list[str]) -> dict:
     for pos in jugadores:
         random.shuffle(jugadores[pos])
     
-    # Distribución por posición
-    # Porteros: 2-2-2
-    dist_G = [2, 2, 2]
-    # Defensas: 9-8-8 (aleatorio quién tiene 9)
-    dist_D = [9, 8, 8]
-    random.shuffle(dist_D)
-    # Medios: 8-8-8
-    dist_M = [8, 8, 8]
-    # Delanteros: 7-7-6 (aleatorio quién tiene 6)
-    dist_F = [7, 7, 6]
-    random.shuffle(dist_F)
+    if n == 2:
+        # 2 equipos: 25 jugadores cada uno (2P, 8D, 8M, 7F)
+        dist_G = [2, 2]
+        dist_D = [8, 8]
+        dist_M = [8, 8]
+        dist_F = [7, 7]
+    else:
+        # 3 equipos: distribución ajustada
+        # Porteros: 2-2-2
+        dist_G = [2, 2, 2]
+        # Defensas: 9-8-8 (aleatorio quién tiene 9)
+        dist_D = [9, 8, 8]
+        random.shuffle(dist_D)
+        # Medios: 8-8-8
+        dist_M = [8, 8, 8]
+        # Delanteros: 7-7-6 (aleatorio quién tiene 6)
+        dist_F = [7, 7, 6]
+        random.shuffle(dist_F)
     
     equipos_creados = {}
     db = get_db()
@@ -126,27 +131,46 @@ def pagina_draft(liga_id: int):
       <p class="fifa-header-sub">Reparto aleatorio de jugadores</p></div>
     </div>""", unsafe_allow_html=True)
     
-    st.info("""
-    Los 75 jugadores se repartirán aleatoriamente entre 3 participantes:
-    - 🧤 **2 porteros** por equipo
-    - 🛡️ **8-9 defensas** por equipo  
-    - ⚙️ **8 centrocampistas** por equipo
-    - ⚡ **6-7 delanteros** por equipo
-    """)
-    
-    st.markdown("### Introduce los 3 participantes")
-    
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        p1 = st.text_input("Participante 1", placeholder="Nombre...")
-    with col2:
-        p2 = st.text_input("Participante 2", placeholder="Nombre...")
-    with col3:
-        p3 = st.text_input("Participante 3", placeholder="Nombre...")
-    
+    num_equipos = st.radio("¿Cuántos equipos?", [2, 3], horizontal=True)
+
+    if num_equipos == 2:
+        st.info("""
+        25 jugadores por equipo (los 25 restantes quedan sin asignar):
+        - 🧤 **2 porteros** por equipo
+        - 🛡️ **8 defensas** por equipo
+        - ⚙️ **8 centrocampistas** por equipo
+        - ⚡ **7 delanteros** por equipo
+        """)
+    else:
+        st.info("""
+        Los 75 jugadores se reparten entre 3 equipos:
+        - 🧤 **2 porteros** por equipo
+        - 🛡️ **8-9 defensas** por equipo
+        - ⚙️ **8 centrocampistas** por equipo
+        - ⚡ **6-7 delanteros** por equipo
+        """)
+
+    st.markdown(f"### Introduce los {num_equipos} participantes")
+
+    if num_equipos == 2:
+        col1, col2 = st.columns(2)
+        with col1:
+            p1 = st.text_input("Participante 1", placeholder="Nombre...")
+        with col2:
+            p2 = st.text_input("Participante 2", placeholder="Nombre...")
+        p3 = ""
+    else:
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            p1 = st.text_input("Participante 1", placeholder="Nombre...")
+        with col2:
+            p2 = st.text_input("Participante 2", placeholder="Nombre...")
+        with col3:
+            p3 = st.text_input("Participante 3", placeholder="Nombre...")
+
     participantes = [p.strip() for p in [p1, p2, p3] if p.strip()]
-    
-    if len(participantes) == 3:
+
+    if len(participantes) == num_equipos:
         st.markdown("---")
         col_a, col_b, col_c = st.columns([1, 2, 1])
         with col_b:
@@ -170,4 +194,4 @@ def pagina_draft(liga_id: int):
                     except Exception as e:
                         st.error(f"❌ Error: {e}")
     else:
-        st.warning("Introduce los nombres de los 3 participantes para continuar.")
+        st.warning(f"Introduce los nombres de los {num_equipos} participantes para continuar.")
