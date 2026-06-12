@@ -17,7 +17,7 @@ from database import (
 )
 from fantasy import actualizar_puntos_jornada, _api_get, LEAGUE_ID, SEASON
 from alineacion import pagina_alineacion
-from ligas import pagina_login
+
 from historial import pagina_historial
 from como_funciona import pagina_como_funciona
 
@@ -27,9 +27,11 @@ st.set_page_config(
     layout="wide"
 )
 
+from ligas import pagina_login as _pagina_login
+
 # ── LOGIN CHECK ──────────────────────────
 if "liga_activa" not in st.session_state:
-    pagina_login()
+    _pagina_login()
     st.stop()
 
 liga_activa = st.session_state["liga_activa"]
