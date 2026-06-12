@@ -17,6 +17,7 @@ from database import (
 )
 from fantasy import actualizar_puntos_jornada, _api_get, LEAGUE_ID, SEASON
 from alineacion import pagina_alineacion
+from ligas import pagina_login
 from historial import pagina_historial
 from como_funciona import pagina_como_funciona
 
@@ -25,6 +26,15 @@ st.set_page_config(
     page_icon="🏆",
     layout="wide"
 )
+
+# ── LOGIN CHECK ──────────────────────────
+if "liga_activa" not in st.session_state:
+    pagina_login()
+    st.stop()
+
+liga_activa = st.session_state["liga_activa"]
+liga_id = liga_activa["id"]
+liga_nombre = liga_activa["nombre"]
 
 # ── CSS GLOBAL ────────────────────────────
 st.markdown("""
@@ -134,12 +144,15 @@ div[data-testid="stSidebar"] .stRadio label { font-size: 14px; }
 """, unsafe_allow_html=True)
 
 # ── SIDEBAR ───────────────────────────────
-st.sidebar.markdown("""
+st.sidebar.markdown(f"""
 <div style="background:#1a7a4a;border-radius:10px;padding:12px 14px;margin-bottom:1rem;">
   <div style="color:white;font-weight:600;font-size:16px;">🏆 Fantasy Mundial</div>
-  <div style="color:rgba(255,255,255,0.7);font-size:11px;">Mundial 2026</div>
+  <div style="color:rgba(255,255,255,0.7);font-size:11px;">{liga_nombre}</div>
 </div>
 """, unsafe_allow_html=True)
+if st.sidebar.button("🚪 Cambiar liga"):
+    del st.session_state["liga_activa"]
+    st.rerun()
 
 pagina = st.sidebar.radio("", [
     "🏅 Clasificación",
@@ -185,7 +198,7 @@ if pagina == "🏅 Clasificación":
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown('<p class="seccion-titulo">Clasificación</p>', unsafe_allow_html=True)
 
-    clasificacion = get_clasificacion()
+    clasificacion = get_clasificacion(liga_id=liga_id)
     if not clasificacion:
         st.info("Aún no hay equipos. Ve a **Crear usuario/equipo** para empezar.")
     else:
@@ -234,7 +247,7 @@ elif pagina == "👤 Mi equipo":
         with col1:
             sel = st.selectbox("Usuario", [u[1] for u in usuarios])
         uid = next(u[0] for u in usuarios if u[1] == sel)
-        equipos = get_equipos(uid)
+        equipos = get_equipos(uid, liga_id=liga_id)
         if not equipos:
             st.warning("Este usuario no tiene equipo.")
         else:
@@ -324,7 +337,7 @@ elif pagina == "⚽ Mi alineación":
         with col1:
             sel = st.selectbox("Usuario", [u[1] for u in usuarios], key="alin_user")
         uid = next(u[0] for u in usuarios if u[1] == sel)
-        equipos = get_equipos(uid)
+        equipos = get_equipos(uid, liga_id=liga_id)
         if not equipos:
             st.warning("Este usuario no tiene equipo.")
         else:
@@ -371,7 +384,7 @@ elif pagina == "➕ Crear usuario/equipo":
             nombre_equipo = st.text_input("Nombre del equipo")
             if st.button("Crear equipo", type="primary"):
                 if nombre_equipo.strip():
-                    crear_equipo(uid, nombre_equipo.strip())
+                    crear_equipo(uid, nombre_equipo.strip(), liga_id=liga_id)
                     st.success(f"✅ Equipo **{nombre_equipo}** creado con $100M.")
                 else:
                     st.error("Escribe un nombre.")
@@ -403,7 +416,7 @@ elif pagina == "🔍 Buscar jugadores":
             if not resultados:
                 st.warning("No encontrado. Prueba con otro nombre.")
             else:
-                equipos = get_equipos()
+                equipos = get_equipos(liga_id=liga_id)
                 if equipos:
                     eq_opciones = {f"{e[2]} — {e[1]}": e[0] for e in equipos}
                     eq_sel = st.selectbox("Añadir al equipo:", list(eq_opciones.keys()))

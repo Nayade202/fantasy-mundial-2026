@@ -37,12 +37,14 @@ def crear_equipo(usuario_id: int, nombre: str) -> int:
     }).execute()
     return res.data[0]["id"]
 
-def get_equipos(usuario_id=None):
+def get_equipos(usuario_id=None, liga_id=None):
     db = get_db()
+    query = db.table("equipos").select("id, nombre, presupuesto, liga_id, usuarios(nombre)")
     if usuario_id:
-        res = db.table("equipos").select("id, nombre, presupuesto, usuarios(nombre)").eq("usuario_id", usuario_id).execute()
-    else:
-        res = db.table("equipos").select("id, nombre, presupuesto, usuarios(nombre)").execute()
+        query = query.eq("usuario_id", usuario_id)
+    if liga_id:
+        query = query.eq("liga_id", liga_id)
+    res = query.execute()
     return [(r["id"], r["nombre"], r["usuarios"]["nombre"], r["presupuesto"]) for r in res.data]
 
 def get_presupuesto(equipo_id: int) -> float:
@@ -104,9 +106,12 @@ def guardar_puntos(equipo_id: int, jugador_id: int, fixture_id: int, jornada: in
         "desglose": desglose
     }).execute()
 
-def get_clasificacion():
+def get_clasificacion(liga_id: int = None):
     db = get_db()
-    equipos = db.table("equipos").select("id, nombre, usuarios(nombre)").execute()
+    query = db.table("equipos").select("id, nombre, usuarios(nombre)")
+    if liga_id:
+        query = query.eq("liga_id", liga_id)
+    equipos = query.execute()
     resultado = []
     for e in equipos.data:
         pts_res = db.table("puntos_historico").select("puntos").eq("equipo_id", e["id"]).execute()
