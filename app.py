@@ -19,6 +19,7 @@ from fantasy import actualizar_puntos_jornada, _api_get, LEAGUE_ID, SEASON
 from alineacion import pagina_alineacion
 
 from historial import pagina_historial
+from draft import pagina_draft
 from como_funciona import pagina_como_funciona
 
 st.set_page_config(
@@ -162,6 +163,7 @@ pagina = st.sidebar.radio("", [
     "⚽ Mi alineación",
     "📊 Historial",
     "📖 Cómo funciona",
+    "🎲 Crear equipos (draft)",
     "➕ Crear usuario/equipo",
     "🔍 Buscar jugadores",
     "🔄 Actualizar puntos",
@@ -357,6 +359,10 @@ elif pagina == "📊 Historial":
 # ── CÓMO FUNCIONA ────────────────────────
 elif pagina == "📖 Cómo funciona":
     pagina_como_funciona()
+
+# ── DRAFT ────────────────────────────────
+elif pagina == "🎲 Crear equipos (draft)":
+    pagina_draft(liga_id)
 
 # ── CREAR USUARIO / EQUIPO ────────────────
 elif pagina == "➕ Crear usuario/equipo":
