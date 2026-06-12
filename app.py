@@ -579,7 +579,3 @@ elif pagina == "⚙️ Configuración API":
                         st.error(f"❌ Error: {e}")
             else:
                 st.error("El nombre no coincide. Escribe exactamente el nombre de la liga.")
-            else:
-                st.error("❌ No se pudo conectar.")
-    else:
-        st.warning("⚠️ No se detecta API key.")
