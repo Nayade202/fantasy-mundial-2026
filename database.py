@@ -28,13 +28,12 @@ def get_usuarios():
     return [(r["id"], r["nombre"]) for r in res.data]
 
 # ── EQUIPOS ────────────────────────────────
-def crear_equipo(usuario_id: int, nombre: str) -> int:
+def crear_equipo(usuario_id: int, nombre: str, liga_id: int = None) -> int:
     db = get_db()
-    res = db.table("equipos").insert({
-        "usuario_id": usuario_id,
-        "nombre": nombre,
-        "presupuesto": 100.0
-    }).execute()
+    data = {"usuario_id": usuario_id, "nombre": nombre, "presupuesto": 100.0}
+    if liga_id:
+        data["liga_id"] = liga_id
+    res = db.table("equipos").insert(data).execute()
     return res.data[0]["id"]
 
 def get_equipos(usuario_id=None, liga_id=None):
