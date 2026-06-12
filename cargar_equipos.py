@@ -1,18 +1,19 @@
 """
 Carga automática de los 3 equipos del Fantasy Mundial 2026 en Supabase
+IDs verificados de api-football.com
 Ejecutar UNA SOLA VEZ: python cargar_equipos.py
 """
 
-import os
+import sqlite3
 from dotenv import load_dotenv
 load_dotenv()
-
-from database import crear_usuario, crear_equipo, añadir_jugador, get_usuarios
+from database import crear_usuario, crear_equipo, añadir_jugador, get_db
 
 EQUIPOS = [
     {
         "usuario": "Nayade", "equipo": "Equipo Nayade",
         "jugadores": [
+            # (id_api, nombre, posicion, precio)
             (246,    "Emiliano Martínez",   "G", 5.5),
             (280,    "Alisson Becker",       "G", 5.0),
             (622,    "Aymeric Laporte",      "D", 6.0),
@@ -23,12 +24,11 @@ EQUIPOS = [
             (396623, "Pau Cubarsí",          "D", 5.0),
             (627,    "Nathan Aké",           "D", 5.0),
             (200054, "Gleison Bremer",       "D", 5.0),
-            (1485,   "Nico Schlotterbeck",   "D", 5.0),
+            (541,    "Joshua Kimmich",       "M", 7.5),
             (1158,   "Pedri",                "M", 9.0),
             (594,    "Jamal Musiala",        "M", 9.5),
             (1247,   "Mikel Oyarzabal",      "M", 7.0),
             (338361, "Aurélien Tchouaméni",  "M", 7.0),
-            (541,    "Joshua Kimmich",       "M", 7.5),
             (364156, "Xavi Simons",          "M", 7.0),
             (284788, "Fabián Ruiz",          "M", 7.0),
             (762,    "Alexis Mac Allister",  "M", 7.5),
@@ -38,7 +38,7 @@ EQUIPOS = [
             (283,    "Ousmane Dembélé",      "F", 8.0),
             (284796, "Rafael Leão",          "F", 8.0),
             (874,    "Cristiano Ronaldo",    "F", 9.0),
-            (365768, "Kvaratskhelia",        "F", 8.5),
+            (306263, "Michael Olise",        "F", 7.5),
         ]
     },
     {
@@ -83,7 +83,6 @@ EQUIPOS = [
             (284519, "Malo Gusto",           "D", 5.5),
             (284520, "Cristian Romero",      "D", 7.0),
             (284521, "Ibrahima Konaté",      "D", 6.5),
-            (284522, "Jules Koundé",         "D", 6.5),
             (284523, "Ronald Araújo",        "D", 6.5),
             (284524, "Rodri",                "M", 9.5),
             (284525, "Florian Wirtz",        "M", 9.0),
@@ -91,27 +90,37 @@ EQUIPOS = [
             (284527, "Vitinha",              "M", 7.5),
             (284528, "Bernardo Silva",       "M", 8.5),
             (284529, "Martín Zubimendi",     "M", 7.5),
-            (284530, "Granit Xhaka",         "M", 7.0),
+            (350022, "Kouadio Koné",         "M", 6.5),
             (184942, "Luka Modrić",          "M", 7.5),
             (278,    "Kylian Mbappé",        "F", 12.0),
             (284531, "Bukayo Saka",          "F", 9.0),
             (284532, "Raphinha",             "F", 8.5),
             (284533, "Lamine Yamal",         "F", 9.5),
             (284534, "Luis Díaz",            "F", 8.0),
+            (200295, "Take Kubo",            "F", 7.0),
             (284535, "Endrick",              "F", 7.5),
         ]
     }
 ]
 
-if __name__ == "__main__":
-    print("🏆 Cargando equipos en Supabase...\n")
+def limpiar_db():
+    db = get_db()
+    db.table("puntos_historico").delete().neq("id", 0).execute()
+    db.table("alineaciones").delete().neq("id", 0).execute()
+    db.table("jugadores_equipo").delete().neq("equipo_id", 0).execute()
+    db.table("equipos").delete().neq("id", 0).execute()
+    db.table("usuarios").delete().neq("id", 0).execute()
+    print("🗑️  Datos anteriores borrados.")
 
-    usuarios = get_usuarios()
-    if usuarios:
-        resp = input(f"Ya hay {len(usuarios)} usuarios en Supabase. ¿Continuar igualmente? (s/n): ")
-        if resp.lower() != "s":
-            print("Cancelado.")
-            exit()
+if __name__ == "__main__":
+    print("🏆 Cargando equipos corregidos en Supabase...\n")
+
+    resp = input("⚠️  Esto borrará TODOS los datos actuales. ¿Continuar? (s/n): ")
+    if resp.lower() != "s":
+        print("Cancelado.")
+        exit()
+
+    limpiar_db()
 
     for datos in EQUIPOS:
         uid = crear_usuario(datos["usuario"])
@@ -119,9 +128,11 @@ if __name__ == "__main__":
         print(f"\n👤 {datos['usuario']} — {datos['equipo']}")
         for jid, nombre, pos, precio in datos["jugadores"]:
             añadir_jugador(eid, jid, nombre, pos, precio)
-            print(f"  ✅ {nombre}")
+            print(f"  ✅ {nombre} (ID: {jid})")
 
+    db = get_db()
+    total = len(db.table("jugadores_equipo").select("jugador_id").execute().data or [])
     print(f"\n{'='*50}")
-    print("✅ Equipos cargados en Supabase")
+    print(f"✅ {total} jugadores cargados en Supabase")
     print("👑 Elige tu capitán desde 'Mi equipo' en la app")
-    print("🚀 App: https://fantasy-mundial-2026.streamlit.app")
+    print("🖼️  Ejecuta: python actualizar_fotos.py")
