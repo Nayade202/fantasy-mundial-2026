@@ -244,7 +244,7 @@ elif pagina == "👤 Mi equipo":
       <p class="fifa-header-sub">Jugadores y puntos</p></div>
     </div>""", unsafe_allow_html=True)
 
-    usuarios = get_usuarios()
+    usuarios = get_usuarios(liga_id=liga_id)
     if not usuarios:
         st.warning("No hay usuarios creados.")
     else:
@@ -334,7 +334,7 @@ elif pagina == "⚽ Mi alineación":
       <p class="fifa-header-sub">Selecciona tu once titular</p></div>
     </div>""", unsafe_allow_html=True)
 
-    usuarios = get_usuarios()
+    usuarios = get_usuarios(liga_id=liga_id)
     if not usuarios:
         st.warning("No hay usuarios creados.")
     else:
@@ -384,7 +384,7 @@ elif pagina == "➕ Crear usuario/equipo":
             else:
                 st.error("Escribe un nombre.")
     with tab2:
-        usuarios = get_usuarios()
+        usuarios = get_usuarios(liga_id=liga_id)
         if not usuarios:
             st.warning("Primero crea un usuario.")
         else:

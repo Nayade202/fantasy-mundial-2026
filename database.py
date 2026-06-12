@@ -22,8 +22,19 @@ def crear_usuario(nombre: str) -> int:
     res = db.table("usuarios").insert({"nombre": nombre}).execute()
     return res.data[0]["id"]
 
-def get_usuarios():
+def get_usuarios(liga_id: int = None):
     db = get_db()
+    if liga_id:
+        # Solo usuarios que tienen equipo en esta liga
+        res = db.table("equipos").select("usuario_id, usuarios(id, nombre)").eq("liga_id", liga_id).execute()
+        vistos = set()
+        usuarios = []
+        for r in (res.data or []):
+            uid = r["usuarios"]["id"]
+            if uid not in vistos:
+                vistos.add(uid)
+                usuarios.append((uid, r["usuarios"]["nombre"]))
+        return sorted(usuarios, key=lambda x: x[1])
     res = db.table("usuarios").select("id, nombre").order("nombre").execute()
     return [(r["id"], r["nombre"]) for r in res.data]
 
