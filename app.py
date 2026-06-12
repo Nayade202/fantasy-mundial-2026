@@ -9,6 +9,7 @@ load_dotenv()
 
 import streamlit as st
 import json
+from database import get_db
 from database import (
     crear_usuario, get_usuarios, crear_equipo, get_equipos,
     get_presupuesto, añadir_jugador, get_jugadores_equipo,
@@ -518,6 +519,66 @@ elif pagina == "⚙️ Configuración API":
                 col1.metric("Plan", subs.get("plan", "—"))
                 col2.metric("Requests hoy", reqs.get("current", 0))
                 col3.metric("Límite diario", reqs.get("limit_day", "—"))
+
+    st.divider()
+
+    # ── GESTIÓN DE EQUIPOS ─────────────────
+    st.markdown("### 🏟️ Eliminar equipo")
+    db = get_db()
+    equipos_liga = db.table("equipos").select("id, nombre, usuarios(nombre)").eq("liga_id", liga_id).execute()
+    equipos_lista = equipos_liga.data or []
+
+    if not equipos_lista:
+        st.info("No hay equipos en esta liga.")
+    else:
+        eq_opciones = {f"{e['usuarios']['nombre']} — {e['nombre']}": e['id'] for e in equipos_lista}
+        eq_sel = st.selectbox("Selecciona el equipo a eliminar", list(eq_opciones.keys()))
+        equipo_borrar_id = eq_opciones[eq_sel]
+
+        with st.expander("⚠️ Confirmar eliminación del equipo"):
+            st.error(f"Se eliminarán todos los jugadores, alineaciones y puntos de **{eq_sel}**.")
+            if st.button("🗑️ Eliminar este equipo", key="btn_del_equipo"):
+                with st.spinner("Eliminando equipo..."):
+                    try:
+                        db.table("puntos_historico").delete().eq("equipo_id", equipo_borrar_id).execute()
+                        db.table("alineaciones").delete().eq("equipo_id", equipo_borrar_id).execute()
+                        db.table("jugadores_equipo").delete().eq("equipo_id", equipo_borrar_id).execute()
+                        db.table("equipos").delete().eq("id", equipo_borrar_id).execute()
+                        st.success(f"✅ Equipo eliminado.")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Error: {e}")
+
+    st.divider()
+
+    # ── ELIMINAR LIGA ──────────────────────
+    st.markdown("### 🗑️ Eliminar liga")
+    st.warning(f"Liga activa: **{liga_nombre}**")
+
+    with st.expander("⚠️ Zona de peligro — Eliminar esta liga"):
+        st.error("Esto eliminará permanentemente la liga, sus equipos, alineaciones y puntos. **No se puede deshacer.**")
+        confirmar = st.text_input("Escribe el nombre de la liga para confirmar:", placeholder=liga_nombre)
+        if st.button("🗑️ Eliminar liga definitivamente", type="primary"):
+            if confirmar == liga_nombre:
+                db = get_db()
+                with st.spinner("Eliminando..."):
+                    try:
+                        # Borrar en orden por dependencias
+                        equipos_liga = db.table("equipos").select("id").eq("liga_id", liga_id).execute()
+                        ids = [e["id"] for e in (equipos_liga.data or [])]
+                        for eid in ids:
+                            db.table("puntos_historico").delete().eq("equipo_id", eid).execute()
+                            db.table("alineaciones").delete().eq("equipo_id", eid).execute()
+                            db.table("jugadores_equipo").delete().eq("equipo_id", eid).execute()
+                        db.table("equipos").delete().eq("liga_id", liga_id).execute()
+                        db.table("ligas").delete().eq("id", liga_id).execute()
+                        del st.session_state["liga_activa"]
+                        st.success("✅ Liga eliminada.")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Error: {e}")
+            else:
+                st.error("El nombre no coincide. Escribe exactamente el nombre de la liga.")
             else:
                 st.error("❌ No se pudo conectar.")
     else:
