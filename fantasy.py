@@ -398,18 +398,21 @@ def actualizar_puntos_jornada(jornada: int):
                     deadline_dia = dt.datetime.fromisoformat(raw)
 
         # Obtener alineaciones guardadas ANTES del deadline de ese día
+        # Si no hay para ese día, usar la más reciente guardada anteriormente
         if deadline_dia:
-            alin_res = db.table("alineaciones").select("*").eq("jornada", jornada).lte("guardado", deadline_dia.isoformat()).execute()
+            alin_res = db.table("alineaciones").select("*").lte("guardado", deadline_dia.isoformat()).order("guardado", desc=True).execute()
         else:
-            alin_res = db.table("alineaciones").select("*").eq("jornada", jornada).execute()
+            alin_res = db.table("alineaciones").select("*").order("guardado", desc=True).execute()
 
+        # Para cada equipo, usar la alineación más reciente disponible
         for a in (alin_res.data or []):
             eid = a["equipo_id"]
             if eid not in alineaciones_por_equipo:
                 alineaciones_por_equipo[eid] = {"titulares": set(), "suplentes": []}
+            # Solo añadir si este equipo aún no tiene titulares completos
             if a["es_titular"]:
                 alineaciones_por_equipo[eid]["titulares"].add(a["jugador_id"])
-            else:
+            elif eid in alineaciones_por_equipo:
                 alineaciones_por_equipo[eid]["suplentes"].append((a.get("orden_suplente", 99), a["jugador_id"]))
 
     alineaciones = [a for adict in alineaciones_por_equipo.values() for a in [adict]]
